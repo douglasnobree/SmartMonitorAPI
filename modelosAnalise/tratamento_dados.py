@@ -3,7 +3,15 @@ import numpy as np
 
 class Tratamentodados:
     @staticmethod
-    def tratamento(dados_json):
+    def tratamento(dados_json, filtrar_zeros=True):
+        """
+        Processa os dados recebidos de um JSON.
+        
+        Args:
+            dados_json: O dicionário de dados com datas e consumos
+            filtrar_zeros: Se True, remove valores menores ou iguais a 0.1
+                           Se False, mantém todos os valores
+        """
         df = pd.DataFrame({'Data': dados_json.keys(), 'Consumo': dados_json.values()})
 
         for indice in df.index:
@@ -14,6 +22,8 @@ class Tratamentodados:
 
         df["Acumulado"] = df['Consumo'].cumsum()
 
-        df = df.loc[df['Consumo'] > 0.1]
+        # Filtrar valores pequenos apenas se o parâmetro filtrar_zeros for True
+        if filtrar_zeros:
+            df = df.loc[df['Consumo'] > 0.1]
 
         return df

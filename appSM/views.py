@@ -33,7 +33,8 @@ class Analise_Predicao(APIView):
             data = json.loads(request.body)
 
             tratamento_dados = Tratamentodados()
-            dados_dataframe = tratamento_dados.tratamento(data)
+            # Para predição, queremos filtrar valores pequenos
+            dados_dataframe = tratamento_dados.tratamento(data, filtrar_zeros=True)
 
             # if len(dados_dataframe) < 30:
             #     return JsonResponse({'error': 'A lista deve conter pelo menos 30 dados de consumo.'}, status=400)
@@ -71,7 +72,8 @@ class Analise_predicao_mensal(APIView):
             print(data)
 
             tratamento_dados = Tratamentodados()
-            dados_dataframe = tratamento_dados.tratamento(data)
+            # Para predição mensal, queremos filtrar valores pequenos
+            dados_dataframe = tratamento_dados.tratamento(data, filtrar_zeros=True)
 
             # if len(dados_dataframe) < 3 or len(dados_dataframe)>12:
             #     return JsonResponse({'error': 'A lista deve conter quantidade de dados válidos(lista > 3 e lista < 13)'}, status=400)
@@ -113,7 +115,8 @@ class Analise_estatistica(APIView):
             data = json.loads(request.body)
 
             tratamento_dados = Tratamentodados()
-            dados_dataframe = tratamento_dados.tratamento(data)
+            # Para análise estatística, não queremos filtrar valores pequenos
+            dados_dataframe = tratamento_dados.tratamento(data, filtrar_zeros=False)
 
             # if len(dados_dataframe) != 30:
             #     return JsonResponse({'error': 'A lista deve conter exatamente 30 dados de consumo.'}, status=400)
@@ -121,6 +124,78 @@ class Analise_estatistica(APIView):
             classificacao = analise_estatistica(dados_dataframe)
 
             return JsonResponse({ 'Data': classificacao[-1]['Data'], 'Consumo': classificacao[-1]['Consumo'],'classificacao': classificacao[-1]['Classificação']}, status=status.HTTP_200_OK)
+
+        except json.JSONDecodeError:
+            return JsonResponse({'error': 'JSON inválido.'}, status=400)
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=500)
+        
+
+class dados_bandas(APIView):
+    
+    permission_classes = [IsAuthenticated]
+
+    @swagger_auto_schema(
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            additional_properties=openapi.Schema(type=openapi.TYPE_NUMBER)
+        ),
+        responses={200: openapi.Response('Success', openapi.Schema(type=openapi.TYPE_OBJECT, properties={
+            'dados': openapi.Schema(type=openapi.TYPE_STRING)
+        }))}
+    )
+    
+    def post(self, request):
+        print(self, request)
+        try:
+            data = json.loads(request.body)
+
+            tratamento_dados = Tratamentodados()
+            dados_dataframe = tratamento_dados.tratamento(data, filtrar_zeros=False)
+
+            # Obter os dados processados das bandas
+            dados = analise_estatistica(dados_dataframe)
+            
+            # Retornar apenas os dados
+            return JsonResponse({
+                'dados': dados
+            }, status=status.HTTP_200_OK)
+
+        except json.JSONDecodeError:
+            return JsonResponse({'error': 'JSON inválido.'}, status=400)
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=500)
+
+
+class grafico_bandas(APIView):
+    
+    permission_classes = [IsAuthenticated]
+
+    @swagger_auto_schema(
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            additional_properties=openapi.Schema(type=openapi.TYPE_NUMBER)
+        ),
+        responses={200: openapi.Response('Success', openapi.Schema(type=openapi.TYPE_OBJECT, properties={
+            'grafico': openapi.Schema(type=openapi.TYPE_STRING)
+        }))}
+    )
+    
+    def post(self, request):
+        try:
+            data = json.loads(request.body)
+
+            tratamento_dados = Tratamentodados()
+            dados_dataframe = tratamento_dados.tratamento(data, filtrar_zeros=False)
+            
+            # Gerar apenas o gráfico de bandas de Bollinger
+            from modelosAnalise.StatisticalAnalysis.analiseEstatistica import gerar_grafico_bollinger
+            grafico_base64 = gerar_grafico_bollinger(dados_dataframe)
+            
+            # Retornar apenas a imagem codificada em base64
+            return JsonResponse({
+                'grafico': grafico_base64
+            }, status=status.HTTP_200_OK)
 
         except json.JSONDecodeError:
             return JsonResponse({'error': 'JSON inválido.'}, status=400)

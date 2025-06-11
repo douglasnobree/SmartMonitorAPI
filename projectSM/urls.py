@@ -13,11 +13,8 @@ from rest_framework_simplejwt.views import (
 schema_view = get_schema_view(
     openapi.Info(
         title="Smart Monitor API",
-        default_version='',
-        description="",
-        terms_of_service="",
-        contact=openapi.Contact(email=""),
-        license=openapi.License(name=""),
+        default_version='v1',
+        description="Documentação da API do projeto Smart Monitor",
     ),
     public=True,
     permission_classes=(permissions.AllowAny,),
@@ -26,13 +23,22 @@ schema_view = get_schema_view(
 urlpatterns = [
     # Rotas da api
     path('admin/', admin.site.urls),
+
+    # Rota de análise de dados
     path('statistic/', Analise_estatistica.as_view()),
+
+    # Rota para dados das bandas de Bollinger
+    path('statistic/data', dados_bandas.as_view()),
+
+    # Rota para imagem do gráfico de bandas de Bollinger
+    path('statistic/graph', grafico_bandas.as_view()),
+
     # Predição individual do sensor
     path('prediction/', Analise_Predicao.as_view()),
+
     # Predição mensal. 
     path('prediction/monthly', Analise_predicao_mensal.as_view()),
-
-
+    
     # Swagger
     path('token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
     #path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
