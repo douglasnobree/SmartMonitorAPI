@@ -13,8 +13,15 @@ from rest_framework_simplejwt.views import (
 schema_view = get_schema_view(
     openapi.Info(
         title="Smart Monitor API",
-        default_version='v1',
-        description="Documentação da API do projeto Smart Monitor",
+        default_version='v1',        description="API do projeto Smart Monitor para análise e predição de consumo de energia.\n\n"
+                   "Esta API oferece serviços para:\n"
+                   "- Classificação do consumo atual em categorias baseadas em bandas de Bollinger\n"
+                   "- Obtenção de dados estatísticos completos para análise\n"
+                   "- Predição de consumo futuro utilizando modelos de aprendizado de máquina\n\n"
+                   "Todas as rotas requerem autenticação JWT, que pode ser obtida através do endpoint /token/",
+        terms_of_service="https://www.smartmonitor.com/terms/",
+        contact=openapi.Contact(email="contato@smartmonitor.com"),
+        license=openapi.License(name="BSD License"),
     ),
     public=True,
     permission_classes=(permissions.AllowAny,),
@@ -24,25 +31,18 @@ urlpatterns = [
     # Rotas da api
     path('admin/', admin.site.urls),
 
-    # Rota de análise de dados
-    path('statistic/', Analise_estatistica.as_view()),
+    # Rota classificação de consumo atual
+    path('statistic/', Analise_estatistica.as_view(), name='classificacao-consumo'),    # Rota para dados das bandas de Bollinger
+    path('statistic/data', dados_bandas.as_view(), name='dados-bandas'),
 
-    # Rota para dados das bandas de Bollinger
-    path('statistic/data', dados_bandas.as_view()),
-
-    # Rota para imagem do gráfico de bandas de Bollinger
-    path('statistic/graph', grafico_bandas.as_view()),
-
-    # Predição individual do sensor
-    path('prediction/', Analise_Predicao.as_view()),
-
-    # Predição mensal. 
-    path('prediction/monthly', Analise_predicao_mensal.as_view()),
+    # Rota de predição
+    path('prediction/', Analise_Predicao.as_view(), name='predicao-consumo'),
     
-    # Swagger
+    # Swagger e autenticação
     path('token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
     #path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
 
+    # Documentação da API
     path('', schema_view.with_ui('swagger', cache_timeout=0), name='schema-swagger-ui'),
     path('redoc/', schema_view.with_ui('redoc', cache_timeout=0), name='schema-redoc'),
 

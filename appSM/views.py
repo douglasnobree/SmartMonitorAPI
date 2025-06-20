@@ -2,30 +2,62 @@ import json
 from modelosAnalise.tratamento_dados import Tratamentodados
 from drf_yasg import openapi
 from drf_yasg.utils import swagger_auto_schema
-from appSM.serializers import MySerializer
 
 from rest_framework import status
-from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
 
-from django.shortcuts import render
 from django.http import JsonResponse
 
-from JSONs import test_json
 # Serviço predição
-# from modelosAnalise.RandomForest.randomforest import model_trained_day, predict_next_day
 from modelosAnalise.LinearRegression.RegressaoLinear import LinearRegression_Acumulado
 
 class Analise_Predicao(APIView):
+    """
+    API para realizar predição de consumo com base nos dados históricos.
+    Utiliza um modelo de Regressão Linear para prever o próximo valor de consumo.
+    """
     permission_classes = [IsAuthenticated]
 
     @swagger_auto_schema(
+        operation_summary="Predição de consumo",
+        operation_description="Realiza uma predição do próximo valor de consumo com base nos dados históricos fornecidos. Utiliza um modelo de regressão linear.",
         request_body=openapi.Schema(
             type=openapi.TYPE_OBJECT,
-            additional_properties=openapi.Schema(type=openapi.TYPE_NUMBER)
+            description="Dicionário onde as chaves são datas no formato DD/MM/YYYY e os valores são os consumos correspondentes",
+            example={"01/06/2025": 120.5, "02/06/2025": 115.2, "03/06/2025": 130.0},
+            additional_properties=openapi.Schema(
+                type=openapi.TYPE_NUMBER,
+                description="Valor de consumo para a data especificada"
+            )
         ),
-        responses={200: openapi.Response('Success', openapi.Schema(type=openapi.TYPE_OBJECT, properties={'prediction': openapi.Schema(type=openapi.TYPE_NUMBER)}))}
+        responses={
+            200: openapi.Response(
+                description='Predição realizada com sucesso',
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        'Prediction': openapi.Schema(
+                            type=openapi.TYPE_NUMBER,
+                            description='Valor previsto para o próximo consumo'
+                        )
+                    }
+                )
+            ),
+            400: openapi.Response(
+                description='Erro ao processar a requisição',
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        'error': openapi.Schema(
+                            type=openapi.TYPE_STRING,
+                            description='Descrição do erro ocorrido'
+                        )
+                    }
+                )
+            ),
+            500: openapi.Response(description='Erro interno do servidor')
+        }
     )
 
     def post(self, request):
@@ -35,48 +67,6 @@ class Analise_Predicao(APIView):
             tratamento_dados = Tratamentodados()
             # Para predição, queremos filtrar valores pequenos
             dados_dataframe = tratamento_dados.tratamento(data, filtrar_zeros=True)
-
-            # if len(dados_dataframe) < 30:
-            #     return JsonResponse({'error': 'A lista deve conter pelo menos 30 dados de consumo.'}, status=400)
-            
-            modelo = LinearRegression_Acumulado()
-
-            # Treinar modelo
-            modelo.train(dados_dataframe)
-
-            # Realizar predição
-            previsao = modelo.prediction(len(dados_dataframe))
-
-            return JsonResponse({'Prediction': (abs(previsao-dados_dataframe['Acumulado'].iloc[-1]))}, status=status.HTTP_200_OK)
-        
-        except json.JSONDecodeError:
-            return JsonResponse({'error': 'JSON inválido.'}, status=400)
-        except Exception as e:
-            return JsonResponse({'error': str(e)}, status=500)
-        
-
-class Analise_predicao_mensal(APIView):
-    permission_classes = [IsAuthenticated]
-
-    @swagger_auto_schema(
-        request_body=openapi.Schema(
-            type=openapi.TYPE_OBJECT,
-            additional_properties=openapi.Schema(type=openapi.TYPE_NUMBER)
-        ),
-        responses={200: openapi.Response('Success', openapi.Schema(type=openapi.TYPE_OBJECT, properties={'prediction': openapi.Schema(type=openapi.TYPE_NUMBER)}))}
-    )
-
-    def post(self, request):
-        try:
-            data = json.loads(request.body)
-            print(data)
-
-            tratamento_dados = Tratamentodados()
-            # Para predição mensal, queremos filtrar valores pequenos
-            dados_dataframe = tratamento_dados.tratamento(data, filtrar_zeros=True)
-
-            # if len(dados_dataframe) < 3 or len(dados_dataframe)>12:
-            #     return JsonResponse({'error': 'A lista deve conter quantidade de dados válidos(lista > 3 e lista < 13)'}, status=400)
             
             modelo = LinearRegression_Acumulado()
 
@@ -98,15 +88,60 @@ class Analise_predicao_mensal(APIView):
 from modelosAnalise.StatisticalAnalysis.analiseEstatistica import analise_estatistica
 
 class Analise_estatistica(APIView):
-    
+    """
+    API para classificação do consumo atual baseado em análise estatística.
+    Utiliza bandas de Bollinger para classificar o consumo em diferentes categorias.
+    """
     permission_classes = [IsAuthenticated]
 
     @swagger_auto_schema(
+        operation_summary="Classificação do consumo atual",
+        operation_description="Analisa os dados de consumo e retorna a classificação do último registro baseada em bandas de Bollinger (Economia Máxima, Uso Eficiente, Consumo Moderado, Uso Elevado, Consumo Excessivo).",
         request_body=openapi.Schema(
             type=openapi.TYPE_OBJECT,
-            additional_properties=openapi.Schema(type=openapi.TYPE_NUMBER)
+            description="Dicionário onde as chaves são datas no formato DD/MM/YYYY e os valores são os consumos correspondentes",
+            example={"01/06/2025": 120.5, "02/06/2025": 115.2, "03/06/2025": 130.0},
+            additional_properties=openapi.Schema(
+                type=openapi.TYPE_NUMBER,
+                description="Valor de consumo para a data especificada"
+            )
         ),
-        responses={200: openapi.Response('Success', openapi.Schema(type=openapi.TYPE_OBJECT, properties={'classificação': openapi.Schema(type=openapi.TYPE_STRING)}))}
+        responses={
+            200: openapi.Response(
+                description='Classificação realizada com sucesso',
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        'Data': openapi.Schema(
+                            type=openapi.TYPE_STRING,
+                            description='Data do último registro analisado'
+                        ),
+                        'Consumo': openapi.Schema(
+                            type=openapi.TYPE_NUMBER,
+                            description='Valor do consumo do último registro'
+                        ),
+                        'classificacao': openapi.Schema(
+                            type=openapi.TYPE_STRING,
+                            description='Classificação do consumo (Economia Máxima, Uso Eficiente, Consumo Moderado, Uso Elevado, Consumo Excessivo)',
+                            enum=["Economia Máxima", "Uso Eficiente", "Consumo Moderado", "Uso Elevado", "Consumo Excessivo", "Sem classificação"]
+                        )
+                    }
+                )
+            ),
+            400: openapi.Response(
+                description='Erro ao processar a requisição',
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        'error': openapi.Schema(
+                            type=openapi.TYPE_STRING,
+                            description='Descrição do erro ocorrido'
+                        )
+                    }
+                )
+            ),
+            500: openapi.Response(description='Erro interno do servidor')
+        }
     )
     
     def post(self, request):
@@ -117,9 +152,6 @@ class Analise_estatistica(APIView):
             tratamento_dados = Tratamentodados()
             # Para análise estatística, não queremos filtrar valores pequenos
             dados_dataframe = tratamento_dados.tratamento(data, filtrar_zeros=False)
-
-            # if len(dados_dataframe) != 30:
-            #     return JsonResponse({'error': 'A lista deve conter exatamente 30 dados de consumo.'}, status=400)
 
             classificacao = analise_estatistica(dados_dataframe)
 
@@ -132,17 +164,65 @@ class Analise_estatistica(APIView):
         
 
 class dados_bandas(APIView):
-    
+    """
+    API para obter os dados das bandas de Bollinger calculadas a partir dos consumos.
+    Retorna um conjunto completo de dados processados incluindo médias móveis, desvios padrão e bandas de Bollinger.
+    """
     permission_classes = [IsAuthenticated]
 
     @swagger_auto_schema(
+        operation_summary="Dados das bandas de Bollinger",
+        operation_description="Processa os dados de consumo e retorna um conjunto completo de informações sobre as bandas de Bollinger, incluindo média móvel, desvio padrão e classificações.",
         request_body=openapi.Schema(
             type=openapi.TYPE_OBJECT,
-            additional_properties=openapi.Schema(type=openapi.TYPE_NUMBER)
+            description="Dicionário onde as chaves são datas no formato DD/MM/YYYY e os valores são os consumos correspondentes",
+            example={"01/06/2025": 120.5, "02/06/2025": 115.2, "03/06/2025": 130.0},
+            additional_properties=openapi.Schema(
+                type=openapi.TYPE_NUMBER,
+                description="Valor de consumo para a data especificada"
+            )
         ),
-        responses={200: openapi.Response('Success', openapi.Schema(type=openapi.TYPE_OBJECT, properties={
-            'dados': openapi.Schema(type=openapi.TYPE_STRING)
-        }))}
+        responses={
+            200: openapi.Response(
+                description='Dados processados com sucesso',
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        'dados': openapi.Schema(
+                            type=openapi.TYPE_ARRAY,
+                            description='Lista de registros contendo os dados processados',
+                            items=openapi.Schema(
+                                type=openapi.TYPE_OBJECT,
+                                properties={
+                                    'Data': openapi.Schema(type=openapi.TYPE_STRING, description='Data do registro'),
+                                    'Consumo': openapi.Schema(type=openapi.TYPE_NUMBER, description='Valor do consumo'),
+                                    'Média Móvel': openapi.Schema(type=openapi.TYPE_NUMBER, description='Média móvel do consumo'),
+                                    'Desvio Padrão': openapi.Schema(type=openapi.TYPE_NUMBER, description='Desvio padrão do consumo'),
+                                    'Banda Inf 1': openapi.Schema(type=openapi.TYPE_NUMBER, description='Banda inferior 1 (Média - 1.5*Desvio)'),
+                                    'Banda Inf 2': openapi.Schema(type=openapi.TYPE_NUMBER, description='Banda inferior 2 (Média - 3*Desvio)'),
+                                    'Banda Sup 1': openapi.Schema(type=openapi.TYPE_NUMBER, description='Banda superior 1 (Média + 1.5*Desvio)'),
+                                    'Banda Sup 2': openapi.Schema(type=openapi.TYPE_NUMBER, description='Banda superior 2 (Média + 3*Desvio)'),
+                                    'Classificação': openapi.Schema(type=openapi.TYPE_STRING, description='Classificação do consumo')
+                                }
+                            )
+                        )
+                    }
+                )
+            ),
+            400: openapi.Response(
+                description='Erro ao processar a requisição',
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        'error': openapi.Schema(
+                            type=openapi.TYPE_STRING,
+                            description='Descrição do erro ocorrido'
+                        )
+                    }
+                )
+            ),
+            500: openapi.Response(description='Erro interno do servidor')
+        }
     )
     
     def post(self, request):
@@ -166,38 +246,3 @@ class dados_bandas(APIView):
         except Exception as e:
             return JsonResponse({'error': str(e)}, status=500)
 
-
-class grafico_bandas(APIView):
-    
-    permission_classes = [IsAuthenticated]
-
-    @swagger_auto_schema(
-        request_body=openapi.Schema(
-            type=openapi.TYPE_OBJECT,
-            additional_properties=openapi.Schema(type=openapi.TYPE_NUMBER)
-        ),
-        responses={200: openapi.Response('Success', openapi.Schema(type=openapi.TYPE_OBJECT, properties={
-            'grafico': openapi.Schema(type=openapi.TYPE_STRING)
-        }))}
-    )
-    
-    def post(self, request):
-        try:
-            data = json.loads(request.body)
-
-            tratamento_dados = Tratamentodados()
-            dados_dataframe = tratamento_dados.tratamento(data, filtrar_zeros=False)
-            
-            # Gerar apenas o gráfico de bandas de Bollinger
-            from modelosAnalise.StatisticalAnalysis.analiseEstatistica import gerar_grafico_bollinger
-            grafico_base64 = gerar_grafico_bollinger(dados_dataframe)
-            
-            # Retornar apenas a imagem codificada em base64
-            return JsonResponse({
-                'grafico': grafico_base64
-            }, status=status.HTTP_200_OK)
-
-        except json.JSONDecodeError:
-            return JsonResponse({'error': 'JSON inválido.'}, status=400)
-        except Exception as e:
-            return JsonResponse({'error': str(e)}, status=500)
