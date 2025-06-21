@@ -122,7 +122,7 @@ class Analise_estatistica(APIView):
                         ),
                         'classificacao': openapi.Schema(
                             type=openapi.TYPE_STRING,
-                            description='Classificação do consumo (Economia Máxima, Uso Eficiente, Consumo Moderado, Uso Elevado, Consumo Excessivo)',
+                            description='Classificação do consumo: -2 => Economia Máxima; -1 => Uso Eficiente, 0 => Consumo Moderado, 1 => Uso Elevado, 2 => Consumo Excessivo)',
                             enum=["Economia Máxima", "Uso Eficiente", "Consumo Moderado", "Uso Elevado", "Consumo Excessivo", "Sem classificação"]
                         )
                     }
