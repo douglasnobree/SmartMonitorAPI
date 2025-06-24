@@ -4,7 +4,7 @@ services:
   web:
     build: .
     image: smart-monitor-api
-    command: gunicorn projectSM.wsgi:application --bind 0.0.0.0:8000 --workers 3
+    # O comando será executado pelo entrypoint.sh
     volumes:
       - .:/app
       - static_volume:/app/staticfiles
@@ -14,6 +14,10 @@ services:
     environment:
       - DEBUG=0
       - DJANGO_SETTINGS_MODULE=projectSM.settings
+      # Credenciais do superusuário
+      - DJANGO_SUPERUSER_USERNAME=admin
+      - DJANGO_SUPERUSER_EMAIL=admin@example.com
+      - DJANGO_SUPERUSER_PASSWORD=admin123
     restart: always
 
 volumes:
