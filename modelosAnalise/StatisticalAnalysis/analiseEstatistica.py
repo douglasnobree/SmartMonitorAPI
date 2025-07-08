@@ -49,7 +49,7 @@ def analise_estatistica(data):
             else:                      return -2
 
         df["Classificação"] = df.apply(classifica, axis=1)
-        
+        df.dropna(inplace=True)
         
         return df.fillna("").to_dict(orient="records")
     except Exception as e:
