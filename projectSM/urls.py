@@ -29,21 +29,21 @@ schema_view = get_schema_view(
 
 urlpatterns = [
     # Rotas da api
-    path('admin/', admin.site.urls),
+    path('admin', admin.site.urls),
 
     # Rota classificação de consumo atual
-    path('statistic/', Analise_estatistica.as_view(), name='classificacao-consumo'),    # Rota para dados das bandas de Bollinger
+    path('statistic', Analise_estatistica.as_view(), name='classificacao-consumo'),    # Rota para dados das bandas de Bollinger
     path('statistic/data', dados_bandas.as_view(), name='dados-bandas'),
 
     # Rota de predição
-    path('prediction/', Analise_Predicao.as_view(), name='predicao-consumo'),
+    path('prediction', Analise_Predicao.as_view(), name='predicao-consumo'),
     
     # Swagger e autenticação
-    path('token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
+    path('token', TokenObtainPairView.as_view(), name='token_obtain_pair'),
     #path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
 
     # Documentação da API
-    path('', schema_view.with_ui('swagger', cache_timeout=0), name='schema-swagger-ui'),
-    path('redoc/', schema_view.with_ui('redoc', cache_timeout=0), name='schema-redoc'),
+    path('swagger', schema_view.with_ui('swagger', cache_timeout=0), name='schema-swagger-ui'),
+    path('redoc', schema_view.with_ui('redoc', cache_timeout=0), name='schema-redoc'),
 
 ]
