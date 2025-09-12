@@ -87,6 +87,83 @@ class Analise_Predicao(APIView):
 # Serviço classificação 
 from modelosAnalise.StatisticalAnalysis.analiseEstatistica import analise_estatistica
 
+class Analise_estatistica_mensal(APIView):
+    """
+    API para classificação do consumo atual baseado em análise estatística.
+    Utiliza bandas de Bollinger para classificar o consumo em diferentes categorias.
+    """
+    permission_classes = [IsAuthenticated]
+
+    @swagger_auto_schema(
+        operation_summary="Classificação do consumo do mês",
+        operation_description="Analisa os dados de consumo e retorna a classificação do último registro baseada em bandas de Bollinger (Economia Máxima, Uso Eficiente, Consumo Moderado, Uso Elevado, Consumo Excessivo).",
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            description="Dicionário onde as chaves são datas no formato DD/MM/YYYY e os valores são os consumos correspondentes",
+            example={"01/06/2025": 120.5, "02/06/2025": 115.2, "03/06/2025": 130.0},
+            additional_properties=openapi.Schema(
+                type=openapi.TYPE_NUMBER,
+                description="Valor de consumo para a data especificada"
+            )
+        ),
+        responses={
+            200: openapi.Response(
+                description='Classificação realizada com sucesso',
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        'Data': openapi.Schema(
+                            type=openapi.TYPE_STRING,
+                            description='Data do último registro analisado'
+                        ),
+                        'Consumo': openapi.Schema(
+                            type=openapi.TYPE_NUMBER,
+                            description='Valor do consumo do último registro'
+                        ),
+                        'classificacao': openapi.Schema(
+                            type=openapi.TYPE_STRING,
+                            description='Classificação do consumo: -2 => Economia Máxima; -1 => Uso Eficiente, 0 => Consumo Moderado, 1 => Uso Elevado, 2 => Consumo Excessivo)',
+                            enum=["Economia Máxima", "Uso Eficiente", "Consumo Moderado", "Uso Elevado", "Consumo Excessivo", "Sem classificação"]
+                        )
+                    }
+                )
+            ),
+            400: openapi.Response(
+                description='Erro ao processar a requisição',
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        'error': openapi.Schema(
+                            type=openapi.TYPE_STRING,
+                            description='Descrição do erro ocorrido'
+                        )
+                    }
+                )
+            ),
+            500: openapi.Response(description='Erro interno do servidor')
+        }
+    )
+    
+    def post(self, request):
+        print(self, request)
+        try:
+            data = json.loads(request.body)
+            print(f"Requisição:", data)
+            tratamento_dados = Tratamentodados()
+            # Para análise estatística, não queremos filtrar valores pequenos
+            dados_dataframe = tratamento_dados.tratamento(data, filtrar_zeros=False)
+
+            classificacao = analise_estatistica(dados_dataframe, mensal=True)
+            print(classificacao)
+
+            return JsonResponse({ 'Data': classificacao[-1]['Data'], 'Consumo': classificacao[-1]['Consumo'],'classificacao': classificacao[-1]['Classificação']}, status=status.HTTP_200_OK)
+
+        except json.JSONDecodeError:
+            return JsonResponse({'error': 'JSON inválido.'}, status=400)
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=500)
+        
+
 class Analise_estatistica(APIView):
     """
     API para classificação do consumo atual baseado em análise estatística.
@@ -148,12 +225,12 @@ class Analise_estatistica(APIView):
         print(self, request)
         try:
             data = json.loads(request.body)
-
+            print(data)
             tratamento_dados = Tratamentodados()
             # Para análise estatística, não queremos filtrar valores pequenos
             dados_dataframe = tratamento_dados.tratamento(data, filtrar_zeros=False)
 
-            classificacao = analise_estatistica(dados_dataframe)
+            classificacao = analise_estatistica(dados_dataframe, mensal=False)
 
             return JsonResponse({ 'Data': classificacao[-1]['Data'], 'Consumo': classificacao[-1]['Consumo'],'classificacao': classificacao[-1]['Classificação']}, status=status.HTTP_200_OK)
 
@@ -161,7 +238,7 @@ class Analise_estatistica(APIView):
             return JsonResponse({'error': 'JSON inválido.'}, status=400)
         except Exception as e:
             return JsonResponse({'error': str(e)}, status=500)
-        
+
 
 class dados_bandas(APIView):
     """
@@ -198,10 +275,10 @@ class dados_bandas(APIView):
                                     'Consumo': openapi.Schema(type=openapi.TYPE_NUMBER, description='Valor do consumo'),
                                     'Média Móvel': openapi.Schema(type=openapi.TYPE_NUMBER, description='Média móvel do consumo'),
                                     'Desvio Padrão': openapi.Schema(type=openapi.TYPE_NUMBER, description='Desvio padrão do consumo'),
-                                    'Banda Inf 1': openapi.Schema(type=openapi.TYPE_NUMBER, description='Banda inferior 1 (Média - 1.5*Desvio)'),
-                                    'Banda Inf 2': openapi.Schema(type=openapi.TYPE_NUMBER, description='Banda inferior 2 (Média - 3*Desvio)'),
-                                    'Banda Sup 1': openapi.Schema(type=openapi.TYPE_NUMBER, description='Banda superior 1 (Média + 1.5*Desvio)'),
-                                    'Banda Sup 2': openapi.Schema(type=openapi.TYPE_NUMBER, description='Banda superior 2 (Média + 3*Desvio)'),
+                                    'Banda Inf 1': openapi.Schema(type=openapi.TYPE_NUMBER, description='Banda inferior 1 (Média - 1*Desvio)'),
+                                    'Banda Inf 2': openapi.Schema(type=openapi.TYPE_NUMBER, description='Banda inferior 2 (Média - 2*Desvio)'),
+                                    'Banda Sup 1': openapi.Schema(type=openapi.TYPE_NUMBER, description='Banda superior 1 (Média + 1*Desvio)'),
+                                    'Banda Sup 2': openapi.Schema(type=openapi.TYPE_NUMBER, description='Banda superior 2 (Média + 2*Desvio)'),
                                     'Classificação': openapi.Schema(type=openapi.TYPE_STRING, description='Classificação do consumo')
                                 }
                             )
@@ -234,7 +311,7 @@ class dados_bandas(APIView):
             dados_dataframe = tratamento_dados.tratamento(data, filtrar_zeros=False)
 
             # Obter os dados processados das bandas
-            dados = analise_estatistica(dados_dataframe)
+            dados = analise_estatistica(dados_dataframe, mensal=False)
             
             # Retornar apenas os dados
             return JsonResponse({

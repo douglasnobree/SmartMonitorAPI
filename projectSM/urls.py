@@ -31,8 +31,12 @@ urlpatterns = [
     # Rotas da api
     path('admin', admin.site.urls),
 
+    # Root URL - Redirect to Swagger documentation
+    path('', schema_view.with_ui('swagger', cache_timeout=0), name='api-root'),
+    
     # Rota classificação de consumo atual
-    path('statistic', Analise_estatistica.as_view(), name='classificacao-consumo'),    # Rota para dados das bandas de Bollinger
+    path('statistic/diaria', Analise_estatistica.as_view(), name='classificacao-consumo'),
+    path('statistic/mensal', Analise_estatistica_mensal.as_view(), name='classificacao-consumo-mensal'),
     path('statistic/data', dados_bandas.as_view(), name='dados-bandas'),
 
     # Rota de predição
