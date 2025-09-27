@@ -2,7 +2,6 @@ from rest_framework.response import Response
 from rest_framework import status
 import pandas as pd
 
-## Essa é outra abordagem de análise estatistica
 
 def analise_estatistica(data, mensal=True):
     try:

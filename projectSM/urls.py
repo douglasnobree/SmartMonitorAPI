@@ -13,14 +13,14 @@ from rest_framework_simplejwt.views import (
 schema_view = get_schema_view(
     openapi.Info(
         title="Smart Monitor API",
-        default_version='v1',        description="API do projeto Smart Monitor para análise e predição de consumo de energia.\n\n"
+        default_version='v1',        description="API do projeto Smart Monitor para análise e predição de consumo de água.\n\n"
                    "Esta API oferece serviços para:\n"
                    "- Classificação do consumo atual em categorias baseadas em bandas de Bollinger\n"
                    "- Obtenção de dados estatísticos completos para análise\n"
                    "- Predição de consumo futuro utilizando modelos de aprendizado de máquina\n\n"
                    "Todas as rotas requerem autenticação JWT, que pode ser obtida através do endpoint /token/",
-        terms_of_service="https://www.smartmonitor.com/terms/",
-        contact=openapi.Contact(email="contato@smartmonitor.com"),
+        terms_of_service="https://www.smartmonitor.ifce.edu.br/",
+        contact=openapi.Contact(email="RESOURCIFYLTDA@GMAIL.COM"),
         license=openapi.License(name="BSD License"),
     ),
     public=True,
@@ -35,12 +35,13 @@ urlpatterns = [
     path('', schema_view.with_ui('swagger', cache_timeout=0), name='api-root'),
     
     # Rota classificação de consumo atual
-    path('statistic/diaria', Analise_estatistica.as_view(), name='classificacao-consumo'),
+    path('statistic/diaria', Analise_estatistica_diaria.as_view(), name='classificacao-consumo-diaria'),
     path('statistic/mensal', Analise_estatistica_mensal.as_view(), name='classificacao-consumo-mensal'),
     path('statistic/data', dados_bandas.as_view(), name='dados-bandas'),
 
-    # Rota de predição
-    path('prediction', Analise_Predicao.as_view(), name='predicao-consumo'),
+    # Rota de predição de consumo
+    path('prediction/monthly', PredicaoMensal.as_view(), name='predicao-consumo-mensal'),
+    path('prediction/daily', PredicaoDiaria.as_view(), name='predicao-consumo-diario'),
     
     # Swagger e autenticação
     path('token', TokenObtainPairView.as_view(), name='token_obtain_pair'),
