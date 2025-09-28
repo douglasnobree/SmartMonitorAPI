@@ -8,8 +8,6 @@ from rest_framework.permissions import IsAuthenticated
 
 from django.http import JsonResponse
 
-from services.tratamento_dados import Tratamentodados
-
 # Serviço predição
 from services.senseFlow_A.predicao.PredicaoMensal_service import PredicaoMensal_service
 from services.senseFlow_A.predicao.PredicaoDiaria_service import PredicaoDiaria_service
@@ -145,9 +143,9 @@ class PredicaoDiaria(APIView):
     
 # Serviço classificação 
 # ===================================================================================================================================================================================================
-from services.senseFlow_A.classificacao.analiseEstatistica_service import analise_estatistica
 from services.senseFlow_A.classificacao.analiseEstatisticaDiaria_service import analiseEstatisticaDiaria_service
-
+from services.senseFlow_A.classificacao.analiseEstatisticaMensal_service import analiseEstatisticaMensal_service
+from services.senseFlow_A.classificacao.dadosBandas_service import dadosBandas_service
 
 class Analise_estatistica_mensal(APIView):
     """
@@ -209,14 +207,16 @@ class Analise_estatistica_mensal(APIView):
     def post(self, request):
         try:
             data = json.loads(request.body)
-            # tratamento_dados = Tratamentodados()
-            # # Para análise estatística, não queremos filtrar valores pequenos
-            # dados_dataframe = tratamento_dados.tratamento(data, filtrar_zeros=False)
 
-            # classificacao = analise_estatistica(dados_dataframe, mensal=True)
+            analiseEstatisticaMensalService = analiseEstatisticaMensal_service()
+            classificacao = analiseEstatisticaMensalService.processarDados(data)
 
-            # return JsonResponse({ 'Data': classificacao[-1]['Data'], 'Consumo': classificacao[-1]['Consumo'],'classificacao': classificacao[-1]['Classificação']}, status=status.HTTP_200_OK)
-
+            return JsonResponse({
+                'Data': classificacao['Data'],
+                'Consumo': classificacao['Consumo'],
+                'classificacao': classificacao['Classificação']
+            }, status=status.HTTP_200_OK)
+        
         except json.JSONDecodeError:
             return JsonResponse({'error': 'JSON inválido.'}, status=400)
         except Exception as e:
@@ -286,7 +286,6 @@ class Analise_estatistica_diaria(APIView):
 
             analiseEstatisticaDiariaService = analiseEstatisticaDiaria_service()
             classificacao = analiseEstatisticaDiariaService.processarDados(data)
-            print("Classificação final:", classificacao)
 
             return JsonResponse({ 
                 'Data': classificacao['Data'], 
@@ -301,7 +300,7 @@ class Analise_estatistica_diaria(APIView):
             return JsonResponse({'error': str(e)}, status=500)
 
 # ===================================================================================================================================================================================================
-class dados_bandas(APIView):
+class DadosBandas(APIView):
     """
     API para obter os dados das bandas de Bollinger calculadas a partir dos consumos.
     Retorna um conjunto completo de dados processados incluindo médias móveis, desvios padrão e bandas de Bollinger.
@@ -368,11 +367,8 @@ class dados_bandas(APIView):
         try:
             data = json.loads(request.body)
 
-            tratamento_dados = Tratamentodados()
-            dados_dataframe = tratamento_dados.tratamento(data, filtrar_zeros=False)
-
-            # Obter os dados processados das bandas
-            dados = analise_estatistica(dados_dataframe, mensal=False)
+            dadosBandasService = dadosBandas_service()
+            dados = dadosBandasService.processarDados(data)
             
             # Retornar apenas os dados
             return JsonResponse({

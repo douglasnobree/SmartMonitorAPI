@@ -2,7 +2,7 @@ import pandas as pd
 
 from services.Tratamento import Tratamento
 
-class analiseEstatisticaDiaria_service(Tratamento):
+class analiseEstatisticaMensal_service(Tratamento):
 
     def processarDados(self, dados_request):
 
@@ -10,7 +10,7 @@ class analiseEstatisticaDiaria_service(Tratamento):
             # Criação do DataFrame
             df = pd.DataFrame({'Data': list(dados_request.keys()), 'Consumo': list(dados_request.values())})
 
-            janela = 30
+            janela = 12
 
             df["Média Móvel"] = (
                 df["Consumo"]
@@ -71,7 +71,7 @@ class analiseEstatisticaDiaria_service(Tratamento):
             print("Classificação:", classification)
             return classification
         except Exception as e:
-            print("Error in analiseEstatisticaDiaria_service:", str(e))
+            print("Error in analiseEstatisticaMensal_service:", str(e))
             # Return a dictionary instead of a Response object
             raise Exception(str(e))
         

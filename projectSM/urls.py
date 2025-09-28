@@ -37,7 +37,7 @@ urlpatterns = [
     # Rota classificação de consumo atual
     path('statistic/diaria', Analise_estatistica_diaria.as_view(), name='classificacao-consumo-diaria'),
     path('statistic/mensal', Analise_estatistica_mensal.as_view(), name='classificacao-consumo-mensal'),
-    path('statistic/data', dados_bandas.as_view(), name='dados-bandas'),
+    path('statistic/data', DadosBandas.as_view(), name='dados-bandas'),
 
     # Rota de predição de consumo
     path('prediction/monthly', PredicaoMensal.as_view(), name='predicao-consumo-mensal'),
