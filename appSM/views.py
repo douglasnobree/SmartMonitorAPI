@@ -9,8 +9,8 @@ from rest_framework.permissions import IsAuthenticated
 from django.http import JsonResponse
 
 # Serviço predição
-from services.senseFlow_A.predicao.PredicaoMensal_service import PredicaoMensal_service
-from services.senseFlow_A.predicao.PredicaoDiaria_service import PredicaoDiaria_service
+from ml_pipeline.senseFlow_A.predicao.PredicaoMensal_service import PredicaoMensal_service
+from ml_pipeline.senseFlow_A.predicao.PredicaoDiaria_service import PredicaoDiaria_service
 
 # ===================================================================================================================================================================================
 class PredicaoMensal(APIView):
@@ -143,9 +143,9 @@ class PredicaoDiaria(APIView):
     
 # Serviço classificação 
 # ===================================================================================================================================================================================================
-from services.senseFlow_A.classificacao.analiseEstatisticaDiaria_service import analiseEstatisticaDiaria_service
-from services.senseFlow_A.classificacao.analiseEstatisticaMensal_service import analiseEstatisticaMensal_service
-from services.senseFlow_A.classificacao.dadosBandas_service import dadosBandas_service
+from ml_pipeline.senseFlow_A.classificacao.analiseEstatisticaDiaria_service import analiseEstatisticaDiaria_service
+from ml_pipeline.senseFlow_A.classificacao.analiseEstatisticaMensal_service import analiseEstatisticaMensal_service
+from ml_pipeline.senseFlow_A.classificacao.dadosBandas_service import dadosBandas_service
 
 class Analise_estatistica_mensal(APIView):
     """

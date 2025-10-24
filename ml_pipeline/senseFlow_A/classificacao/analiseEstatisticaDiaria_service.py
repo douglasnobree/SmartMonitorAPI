@@ -1,8 +1,8 @@
 import pandas as pd
 
-from services.Tratamento import Tratamento
+from ml_pipeline.Tratamento import Tratamento
 
-class analiseEstatisticaMensal_service(Tratamento):
+class analiseEstatisticaDiaria_service(Tratamento):
 
     def processarDados(self, dados_request):
 
@@ -10,7 +10,7 @@ class analiseEstatisticaMensal_service(Tratamento):
             # Criação do DataFrame
             df = pd.DataFrame({'Data': list(dados_request.keys()), 'Consumo': list(dados_request.values())})
 
-            janela = 12
+            janela = 30
 
             df["Média Móvel"] = (
                 df["Consumo"]
@@ -71,7 +71,7 @@ class analiseEstatisticaMensal_service(Tratamento):
             print("Classificação:", classification)
             return classification
         except Exception as e:
-            print("Error in analiseEstatisticaMensal_service:", str(e))
+            print("Error in analiseEstatisticaDiaria_service:", str(e))
             # Return a dictionary instead of a Response object
             raise Exception(str(e))
         

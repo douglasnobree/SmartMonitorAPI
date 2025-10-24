@@ -1,5 +1,5 @@
 import pandas as pd
-from services.Tratamento import Tratamento
+from ml_pipeline.Tratamento import Tratamento
 
 class dadosBandas_service(Tratamento):
 

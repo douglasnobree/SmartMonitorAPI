@@ -1,10 +1,10 @@
 import pandas as pd
 import numpy as np
 
-from services.Tratamento import Tratamento
+from ml_pipeline.Tratamento import Tratamento
 from ..modelos.regressaoLinear import LinearRegression_Acumulado
 
-class PredicaoMensal_service(Tratamento):
+class PredicaoDiaria_service(Tratamento):
 
     def processarDados(self, dados_request):
 
@@ -15,12 +15,15 @@ class PredicaoMensal_service(Tratamento):
             if pd.isna(df.at[indice, 'Consumo']):
                 df.at[indice, 'Consumo'] = df['Consumo'].median()
 
-        percentile_25 = df['Consumo'].quantile(0.25)
+        percentile = df['Consumo'].quantile(0.25)
+        if percentile < 1:
+            percentile = df['Consumo'].quantile(0.5)
+
         mean_value = df['Consumo'].mean()
 
-        # Substituir valores abaixo do percentil 25 pela média
+        # Substituir valores abaixo do percentil pela média
         for indice in df.index:
-            if df.at[indice, 'Consumo'] < percentile_25:
+            if df.at[indice, 'Consumo'] < percentile:
                 df.at[indice, 'Consumo'] = mean_value
 
         df["Acumulado"] = [np.nan for i in range(len(df))]
@@ -28,7 +31,7 @@ class PredicaoMensal_service(Tratamento):
         df.reset_index(inplace=True, drop=True)
 
         model = LinearRegression_Acumulado()
-        model.train(df)  # Pass the entire dataframe, not just the 'Acumulado' column
+        model.train(df)
         previsao = model.prediction(len(dados_request))
 
         resultado = abs(previsao - df['Acumulado'].iloc[-1])
