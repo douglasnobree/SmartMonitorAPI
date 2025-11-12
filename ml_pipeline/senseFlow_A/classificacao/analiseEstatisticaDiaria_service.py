@@ -1,10 +1,51 @@
+"""
+Serviço de análise estatística diária usando Bandas de Bollinger.
+
+Este módulo implementa a classificação de consumo diário baseada em
+análise estatística utilizando o método de Bandas de Bollinger.
+"""
+
 import pandas as pd
+import logging
 
 from ml_pipeline.Tratamento import Tratamento
 
+# Configure logger
+logger = logging.getLogger(__name__)
+
+
 class analiseEstatisticaDiaria_service(Tratamento):
+    """
+    Serviço para classificação de consumo diário usando Bandas de Bollinger.
+    
+    Analisa os dados de consumo e classifica o último registro em uma de 5 categorias
+    baseadas nas bandas de Bollinger calculadas com janela móvel de 30 dias.
+    
+    Classificações:
+        -2: Faixa inferior 2 (muito abaixo do normal)
+        -1: Faixa inferior 1 (abaixo do normal)
+         0: Faixa ideal (normal)
+         1: Faixa superior 1 (acima do normal)
+         2: Faixa superior 2 (muito acima do normal)
+    """
 
     def processarDados(self, dados_request):
+        """
+        Processa dados de consumo diário e retorna a classificação do último registro.
+        
+        Args:
+            dados_request (dict): Dicionário com datas e consumos.
+                                 Formato: {'DD/MM/YYYY': valor_float}
+        
+        Returns:
+            dict: Dicionário contendo:
+                - Data (str): Data do último registro
+                - Consumo (float): Valor do consumo
+                - Classificação (int ou str): Classificação do consumo
+        
+        Raises:
+            Exception: Se houver erro no processamento dos dados
+        """
 
         try:
             # Criação do DataFrame
@@ -34,6 +75,15 @@ class analiseEstatisticaDiaria_service(Tratamento):
 
             # classificação
             def classifica(row):
+                """
+                Classifica o consumo baseado nas bandas de Bollinger.
+                
+                Args:
+                    row (pd.Series): Linha do DataFrame com valores calculados
+                
+                Returns:
+                    int ou None: Classificação numérica ou None se sem dados suficientes
+                """
                 c = row["Consumo"]
                 bs3, bs2, bs1, sd, bi1, bi2, bi3  = (
                     row["Banda Sup 3"],
@@ -66,12 +116,11 @@ class analiseEstatisticaDiaria_service(Tratamento):
                 "Consumo": last_row['Consumo'],
                 "Classificação": last_row['Classificação']
             }
-            print("Data:", last_row['Data'])
-
-            print("Classificação:", classification)
+            
+            logger.debug(f"Classificação calculada para {last_row['Data']}: {classification}")
             return classification
+            
         except Exception as e:
-            print("Error in analiseEstatisticaDiaria_service:", str(e))
-            # Return a dictionary instead of a Response object
+            logger.exception(f"Erro em analiseEstatisticaDiaria_service: {str(e)}")
             raise Exception(str(e))
         

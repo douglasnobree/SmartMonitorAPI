@@ -1,4 +1,3 @@
-from appSM.views import *
 from django.contrib import admin
 from django.urls import path
 from rest_framework import permissions
@@ -7,6 +6,15 @@ from drf_yasg import openapi
 from rest_framework_simplejwt.views import (
     TokenObtainPairView,
     TokenRefreshView,
+)
+
+# Import views explicitly
+from appSM.views import (
+    PredicaoMensal,
+    PredicaoDiaria,
+    Analise_estatistica_diaria,
+    Analise_estatistica_mensal,
+    DadosBandas,
 )
 
 

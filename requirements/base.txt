@@ -1,0 +1,47 @@
+# Core Django
+Django==5.1.4
+djangorestframework==3.15.2
+djangorestframework_simplejwt==5.4.0
+
+# API Documentation
+drf-yasg==1.21.8
+
+# WSGI Server
+gunicorn==23.0.0
+
+# Static files
+whitenoise==6.6.0
+
+# Data Processing
+pandas==2.2.3
+numpy==2.2.1
+openpyxl==3.1.5
+
+# Machine Learning
+scikit-learn==1.6.0
+scipy==1.15.0
+joblib==1.4.2
+
+# Utilities
+python-dateutil==2.9.0.post0
+pytz==2024.2
+requests==2.32.3
+PyYAML==6.0.2
+
+# Dependencies
+asgiref==3.8.1
+certifi==2024.12.14
+charset-normalizer==3.4.1
+et_xmlfile==2.0.0
+idna==3.10
+inflection==0.5.1
+packaging==24.2
+PyJWT==2.10.1
+pyparsing==3.2.3
+setuptools==75.7.0
+six==1.17.0
+sqlparse==0.5.3
+threadpoolctl==3.5.0
+tzdata==2024.2
+uritemplate==4.1.1
+urllib3==2.3.0

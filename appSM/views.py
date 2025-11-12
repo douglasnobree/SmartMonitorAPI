@@ -1,4 +1,5 @@
 import json
+import logging
 from drf_yasg import openapi
 from drf_yasg.utils import swagger_auto_schema
 
@@ -11,6 +12,9 @@ from django.http import JsonResponse
 # Serviço predição
 from ml_pipeline.senseFlow_A.predicao.PredicaoMensal_service import PredicaoMensal_service
 from ml_pipeline.senseFlow_A.predicao.PredicaoDiaria_service import PredicaoDiaria_service
+
+# Configure logger
+logger = logging.getLogger(__name__)
 
 # ===================================================================================================================================================================================
 class PredicaoMensal(APIView):
@@ -143,8 +147,11 @@ class PredicaoDiaria(APIView):
     
 # Serviço classificação 
 # ===================================================================================================================================================================================================
-from ml_pipeline.senseFlow_A.classificacao.analiseEstatisticaDiaria_service import analiseEstatisticaDiaria_service
-from ml_pipeline.senseFlow_A.classificacao.analiseEstatisticaMensal_service import analiseEstatisticaMensal_service
+from ml_pipeline.senseFlow_A.classificacao.analise_estatistica_service import (
+    AnaliseEstatisticaService,
+    analiseEstatisticaDiaria_service,  # Alias para compatibilidade
+    analiseEstatisticaMensal_service,  # Alias para compatibilidade
+)
 from ml_pipeline.senseFlow_A.classificacao.dadosBandas_service import dadosBandas_service
 
 class Analise_estatistica_mensal(APIView):
@@ -208,7 +215,12 @@ class Analise_estatistica_mensal(APIView):
         try:
             data = json.loads(request.body)
 
+            # Opção 1: Usar alias (mantém compatibilidade)
             analiseEstatisticaMensalService = analiseEstatisticaMensal_service()
+            
+            # Opção 2: Usar serviço unificado diretamente (recomendado)
+            # analiseEstatisticaMensalService = AnaliseEstatisticaService(janela=12)
+            
             classificacao = analiseEstatisticaMensalService.processarDados(data)
 
             return JsonResponse({
@@ -284,8 +296,15 @@ class Analise_estatistica_diaria(APIView):
         try:
             data = json.loads(request.body)
 
+            # Opção 1: Usar alias (mantém compatibilidade)
             analiseEstatisticaDiariaService = analiseEstatisticaDiaria_service()
+            
+            # Opção 2: Usar serviço unificado diretamente (recomendado)
+            # analiseEstatisticaDiariaService = AnaliseEstatisticaService(janela=30)
+            
             classificacao = analiseEstatisticaDiariaService.processarDados(data)
+
+            logger.info(f"Análise diária realizada - Data: {classificacao['Data']}, Classificação: {classificacao['Classificação']}")
 
             return JsonResponse({ 
                 'Data': classificacao['Data'], 
@@ -294,9 +313,10 @@ class Analise_estatistica_diaria(APIView):
             }, status=status.HTTP_200_OK)
 
         except json.JSONDecodeError:
+            logger.error("JSON inválido recebido na análise diária")
             return JsonResponse({'error': 'JSON inválido.'}, status=400)
         except Exception as e:
-            print("Error in view:", str(e))
+            logger.exception(f"Erro na análise diária: {str(e)}")
             return JsonResponse({'error': str(e)}, status=500)
 
 # ===================================================================================================================================================================================================
@@ -363,12 +383,13 @@ class DadosBandas(APIView):
     )
     
     def post(self, request):
-        print(self, request)
         try:
             data = json.loads(request.body)
 
             dadosBandasService = dadosBandas_service()
             dados = dadosBandasService.processarDados(data)
+            
+            logger.info(f"Dados de bandas processados - Total de registros: {len(dados)}")
             
             # Retornar apenas os dados
             return JsonResponse({
@@ -376,7 +397,9 @@ class DadosBandas(APIView):
             }, status=status.HTTP_200_OK)
 
         except json.JSONDecodeError:
+            logger.error("JSON inválido recebido em dados de bandas")
             return JsonResponse({'error': 'JSON inválido.'}, status=400)
         except Exception as e:
+            logger.exception(f"Erro ao processar dados de bandas: {str(e)}")
             return JsonResponse({'error': str(e)}, status=500)
 

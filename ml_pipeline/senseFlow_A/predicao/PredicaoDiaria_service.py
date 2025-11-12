@@ -1,12 +1,41 @@
+"""
+Serviço de predição de consumo diário usando Regressão Linear.
+
+Este módulo implementa a predição de consumo diário baseada em
+dados históricos utilizando modelo de Regressão Linear com dados acumulados.
+"""
+
 import pandas as pd
 import numpy as np
 
 from ml_pipeline.Tratamento import Tratamento
 from ..modelos.regressaoLinear import LinearRegression_Acumulado
 
+
 class PredicaoDiaria_service(Tratamento):
+    """
+    Serviço para predição de consumo diário.
+    
+    Treina um modelo de Regressão Linear com dados acumulados e prevê
+    o próximo valor de consumo baseado no histórico fornecido.
+    
+    Nota: O modelo é treinado e descartado a cada requisição.
+    """
 
     def processarDados(self, dados_request):
+        """
+        Processa dados históricos e retorna predição do próximo consumo.
+        
+        Args:
+            dados_request (dict): Dicionário com datas e consumos históricos.
+                                 Formato: {'DD/MM/YYYY': valor_float}
+        
+        Returns:
+            float: Valor previsto para o próximo consumo diário
+        
+        Raises:
+            Exception: Se houver erro no processamento ou predição
+        """
 
         df = pd.DataFrame({'Data': dados_request.keys(), 'Consumo': dados_request.values()})
         
