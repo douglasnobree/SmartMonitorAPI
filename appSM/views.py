@@ -148,9 +148,7 @@ class PredicaoDiaria(APIView):
 # Serviço classificação 
 # ===================================================================================================================================================================================================
 from ml_pipeline.senseFlow_A.classificacao.analise_estatistica_service import (
-    AnaliseEstatisticaService,
-    analiseEstatisticaDiaria_service,  # Alias para compatibilidade
-    analiseEstatisticaMensal_service,  # Alias para compatibilidade
+    AnaliseEstatisticaService
 )
 from ml_pipeline.senseFlow_A.classificacao.dadosBandas_service import dadosBandas_service
 
@@ -215,11 +213,7 @@ class Analise_estatistica_mensal(APIView):
         try:
             data = json.loads(request.body)
 
-            # Opção 1: Usar alias (mantém compatibilidade)
-            analiseEstatisticaMensalService = analiseEstatisticaMensal_service()
-            
-            # Opção 2: Usar serviço unificado diretamente (recomendado)
-            # analiseEstatisticaMensalService = AnaliseEstatisticaService(janela=12)
+            analiseEstatisticaMensalService = AnaliseEstatisticaService(janela=12)
             
             classificacao = analiseEstatisticaMensalService.processarDados(data)
 
@@ -295,12 +289,8 @@ class Analise_estatistica_diaria(APIView):
     def post(self, request):
         try:
             data = json.loads(request.body)
-
-            # Opção 1: Usar alias (mantém compatibilidade)
-            analiseEstatisticaDiariaService = analiseEstatisticaDiaria_service()
             
-            # Opção 2: Usar serviço unificado diretamente (recomendado)
-            # analiseEstatisticaDiariaService = AnaliseEstatisticaService(janela=30)
+            analiseEstatisticaDiariaService = AnaliseEstatisticaService(janela=30)
             
             classificacao = analiseEstatisticaDiariaService.processarDados(data)
 

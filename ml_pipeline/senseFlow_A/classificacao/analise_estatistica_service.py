@@ -173,18 +173,3 @@ class AnaliseEstatisticaService(Tratamento):
             return -1  # Abaixo do normal
         else:
             return -2  # Muito abaixo do normal
-
-
-# Aliases para manter compatibilidade com código existente
-class analiseEstatisticaDiaria_service(AnaliseEstatisticaService):
-    """Alias para análise diária - mantém compatibilidade."""
-    
-    def __init__(self):
-        super().__init__(janela=self.JANELA_DIARIA)
-
-
-class analiseEstatisticaMensal_service(AnaliseEstatisticaService):
-    """Alias para análise mensal - mantém compatibilidade."""
-    
-    def __init__(self):
-        super().__init__(janela=self.JANELA_MENSAL)
