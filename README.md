@@ -59,22 +59,33 @@ source venv/bin/activate  # Linux/Mac
 venv\Scripts\activate     # Windows
 ```
 
-3. **Instale as dependências**
+3. **Configure as variáveis de ambiente**
+```bash
+# Copie o arquivo de exemplo
+cp .env.example .env  # Linux/Mac
+copy .env.example .env  # Windows
+
+# Edite o .env e configure sua SECRET_KEY
+# Gere uma nova chave com:
+python -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"
+```
+
+4. **Instale as dependências**
 ```bash
 pip install -r requirements.txt
 ```
 
-4. **Execute as migrações**
+5. **Execute as migrações**
 ```bash
 python manage.py migrate
 ```
 
-5. **Crie um superusuário**
+6. **Crie um superusuário**
 ```bash
 python manage.py createsuperuser
 ```
 
-6. **Inicie o servidor**
+7. **Inicie o servidor**
 ```bash
 python manage.py runserver
 ```
