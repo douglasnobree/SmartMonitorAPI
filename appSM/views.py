@@ -67,18 +67,48 @@ class PredicaoMensal(APIView):
 
     def post(self, request):
         try:
+            # Validar se body não está vazio
+            if not request.body:
+                logger.warning("Requisição recebida sem body")
+                return JsonResponse(
+                    {'error': 'Body da requisição está vazio'}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
             data = json.loads(request.body)
+            
+            # Validar se dados não estão vazios
+            if not data or not isinstance(data, dict):
+                logger.warning("Dados inválidos recebidos na predição mensal")
+                return JsonResponse(
+                    {'error': 'Dados devem ser um objeto JSON não vazio com datas e valores'}, 
+                    status=status.HTTP_422_UNPROCESSABLE_ENTITY
+                )
 
             predicao_service = PredicaoMensal_service()
-
             resultado = predicao_service.processarDados(data)
-
+            
+            logger.info(f"Predição mensal realizada com sucesso - {len(data)} registros processados")
             return JsonResponse({'Prediction': resultado}, status=status.HTTP_200_OK)
 
-        except json.JSONDecodeError:
-            return JsonResponse({'error': 'JSON inválido.'}, status=400)
+        except json.JSONDecodeError as e:
+            logger.error(f"JSON inválido recebido: {str(e)}")
+            return JsonResponse(
+                {'error': 'JSON mal formatado. Verifique a sintaxe.'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        except ValueError as e:
+            logger.error(f"Erro de validação na predição mensal: {str(e)}")
+            return JsonResponse(
+                {'error': str(e)}, 
+                status=status.HTTP_422_UNPROCESSABLE_ENTITY
+            )
         except Exception as e:
-            return JsonResponse({'error': str(e)}, status=500)
+            logger.exception(f"Erro interno na predição mensal: {str(e)}")
+            return JsonResponse(
+                {'error': 'Erro interno ao processar predição. Tente novamente.'}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
 # ===========================================================================================================================================================================================
 class PredicaoDiaria(APIView):
@@ -131,18 +161,48 @@ class PredicaoDiaria(APIView):
 
     def post(self, request):
         try:
+            # Validar se body não está vazio
+            if not request.body:
+                logger.warning("Requisição recebida sem body")
+                return JsonResponse(
+                    {'error': 'Body da requisição está vazio'}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
             data = json.loads(request.body)
+            
+            # Validar se dados não estão vazios
+            if not data or not isinstance(data, dict):
+                logger.warning("Dados inválidos recebidos na predição diária")
+                return JsonResponse(
+                    {'error': 'Dados devem ser um objeto JSON não vazio com datas e valores'}, 
+                    status=status.HTTP_422_UNPROCESSABLE_ENTITY
+                )
 
             predicao_service = PredicaoDiaria_service()
-
             resultado = predicao_service.processarDados(data)
-
+            
+            logger.info(f"Predição diária realizada com sucesso - {len(data)} registros processados")
             return JsonResponse({'Prediction': resultado}, status=status.HTTP_200_OK)
 
-        except json.JSONDecodeError:
-            return JsonResponse({'error': 'JSON inválido.'}, status=400)
+        except json.JSONDecodeError as e:
+            logger.error(f"JSON inválido recebido: {str(e)}")
+            return JsonResponse(
+                {'error': 'JSON mal formatado. Verifique a sintaxe.'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        except ValueError as e:
+            logger.error(f"Erro de validação na predição diária: {str(e)}")
+            return JsonResponse(
+                {'error': str(e)}, 
+                status=status.HTTP_422_UNPROCESSABLE_ENTITY
+            )
         except Exception as e:
-            return JsonResponse({'error': str(e)}, status=500)
+            logger.exception(f"Erro interno na predição diária: {str(e)}")
+            return JsonResponse(
+                {'error': 'Erro interno ao processar predição. Tente novamente.'}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
         
     
 # Serviço classificação 
@@ -211,22 +271,52 @@ class Analise_estatistica_mensal(APIView):
     
     def post(self, request):
         try:
+            # Validar se body não está vazio
+            if not request.body:
+                logger.warning("Requisição recebida sem body")
+                return JsonResponse(
+                    {'error': 'Body da requisição está vazio'}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
             data = json.loads(request.body)
+            
+            # Validar se dados não estão vazios
+            if not data or not isinstance(data, dict):
+                logger.warning("Dados inválidos recebidos na análise mensal")
+                return JsonResponse(
+                    {'error': 'Dados devem ser um objeto JSON não vazio com datas e valores'}, 
+                    status=status.HTTP_422_UNPROCESSABLE_ENTITY
+                )
 
             analiseEstatisticaMensalService = AnaliseEstatisticaService(janela=12)
-            
             classificacao = analiseEstatisticaMensalService.processarDados(data)
-
+            
+            logger.info(f"Análise mensal realizada - Data: {classificacao['Data']}, Classificação: {classificacao['Classificação']}")
             return JsonResponse({
                 'Data': classificacao['Data'],
                 'Consumo': classificacao['Consumo'],
                 'classificacao': classificacao['Classificação']
             }, status=status.HTTP_200_OK)
         
-        except json.JSONDecodeError:
-            return JsonResponse({'error': 'JSON inválido.'}, status=400)
+        except json.JSONDecodeError as e:
+            logger.error(f"JSON inválido recebido: {str(e)}")
+            return JsonResponse(
+                {'error': 'JSON mal formatado. Verifique a sintaxe.'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        except ValueError as e:
+            logger.error(f"Erro de validação na análise mensal: {str(e)}")
+            return JsonResponse(
+                {'error': str(e)}, 
+                status=status.HTTP_422_UNPROCESSABLE_ENTITY
+            )
         except Exception as e:
-            return JsonResponse({'error': str(e)}, status=500)
+            logger.exception(f"Erro interno na análise mensal: {str(e)}")
+            return JsonResponse(
+                {'error': 'Erro interno ao processar análise. Tente novamente.'}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
         
 # ===================================================================================================================================================================================================
 class Analise_estatistica_diaria(APIView):
@@ -271,27 +361,77 @@ class Analise_estatistica_diaria(APIView):
                 )
             ),
             400: openapi.Response(
-                description='Erro ao processar a requisição',
+                description='JSON mal formatado ou inválido',
                 schema=openapi.Schema(
                     type=openapi.TYPE_OBJECT,
                     properties={
                         'error': openapi.Schema(
                             type=openapi.TYPE_STRING,
-                            description='Descrição do erro ocorrido'
+                            description='Descrição do erro de formatação'
                         )
                     }
                 )
             ),
-            500: openapi.Response(description='Erro interno do servidor')
+            401: openapi.Response(
+                description='Não autenticado - Token inválido ou ausente',
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        'detail': openapi.Schema(
+                            type=openapi.TYPE_STRING,
+                            description='Mensagem de erro de autenticação'
+                        )
+                    }
+                )
+            ),
+            422: openapi.Response(
+                description='Dados válidos mas com conteúdo inadequado (ex: dados insuficientes)',
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        'error': openapi.Schema(
+                            type=openapi.TYPE_STRING,
+                            description='Descrição do erro de validação'
+                        )
+                    }
+                )
+            ),
+            500: openapi.Response(
+                description='Erro interno do servidor',
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        'error': openapi.Schema(
+                            type=openapi.TYPE_STRING,
+                            description='Descrição do erro interno'
+                        )
+                    }
+                )
+            )
         }
     )
     
     def post(self, request):
         try:
+            # Validar se body não está vazio
+            if not request.body:
+                logger.warning("Requisição recebida sem body")
+                return JsonResponse(
+                    {'error': 'Body da requisição está vazio'}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
             data = json.loads(request.body)
             
-            analiseEstatisticaDiariaService = AnaliseEstatisticaService(janela=30)
+            # Validar se dados não estão vazios
+            if not data or not isinstance(data, dict):
+                logger.warning("Dados inválidos recebidos na análise diária")
+                return JsonResponse(
+                    {'error': 'Dados devem ser um objeto JSON não vazio com datas e valores'}, 
+                    status=status.HTTP_422_UNPROCESSABLE_ENTITY
+                )
             
+            analiseEstatisticaDiariaService = AnaliseEstatisticaService(janela=30)
             classificacao = analiseEstatisticaDiariaService.processarDados(data)
 
             logger.info(f"Análise diária realizada - Data: {classificacao['Data']}, Classificação: {classificacao['Classificação']}")
@@ -302,12 +442,24 @@ class Analise_estatistica_diaria(APIView):
                 'classificacao': classificacao['Classificação']
             }, status=status.HTTP_200_OK)
 
-        except json.JSONDecodeError:
-            logger.error("JSON inválido recebido na análise diária")
-            return JsonResponse({'error': 'JSON inválido.'}, status=400)
+        except json.JSONDecodeError as e:
+            logger.error(f"JSON inválido recebido na análise diária: {str(e)}")
+            return JsonResponse(
+                {'error': 'JSON mal formatado. Verifique a sintaxe.'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        except ValueError as e:
+            logger.error(f"Erro de validação na análise diária: {str(e)}")
+            return JsonResponse(
+                {'error': str(e)}, 
+                status=status.HTTP_422_UNPROCESSABLE_ENTITY
+            )
         except Exception as e:
-            logger.exception(f"Erro na análise diária: {str(e)}")
-            return JsonResponse({'error': str(e)}, status=500)
+            logger.exception(f"Erro interno na análise diária: {str(e)}")
+            return JsonResponse(
+                {'error': 'Erro interno ao processar análise. Tente novamente.'}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
 # ===================================================================================================================================================================================================
 class DadosBandas(APIView):
@@ -357,24 +509,75 @@ class DadosBandas(APIView):
                 )
             ),
             400: openapi.Response(
-                description='Erro ao processar a requisição',
+                description='JSON mal formatado ou inválido',
                 schema=openapi.Schema(
                     type=openapi.TYPE_OBJECT,
                     properties={
                         'error': openapi.Schema(
                             type=openapi.TYPE_STRING,
-                            description='Descrição do erro ocorrido'
+                            description='Descrição do erro de formatação'
                         )
                     }
                 )
             ),
-            500: openapi.Response(description='Erro interno do servidor')
+            401: openapi.Response(
+                description='Não autenticado - Token inválido ou ausente',
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        'detail': openapi.Schema(
+                            type=openapi.TYPE_STRING,
+                            description='Mensagem de erro de autenticação'
+                        )
+                    }
+                )
+            ),
+            422: openapi.Response(
+                description='Dados válidos mas com conteúdo inadequado (ex: dados insuficientes)',
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        'error': openapi.Schema(
+                            type=openapi.TYPE_STRING,
+                            description='Descrição do erro de validação'
+                        )
+                    }
+                )
+            ),
+            500: openapi.Response(
+                description='Erro interno do servidor',
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        'error': openapi.Schema(
+                            type=openapi.TYPE_STRING,
+                            description='Descrição do erro interno'
+                        )
+                    }
+                )
+            )
         }
     )
     
     def post(self, request):
         try:
+            # Validar se body não está vazio
+            if not request.body:
+                logger.warning("Requisição recebida sem body")
+                return JsonResponse(
+                    {'error': 'Body da requisição está vazio'}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
             data = json.loads(request.body)
+            
+            # Validar se dados não estão vazios
+            if not data or not isinstance(data, dict):
+                logger.warning("Dados inválidos recebidos em dados de bandas")
+                return JsonResponse(
+                    {'error': 'Dados devem ser um objeto JSON não vazio com datas e valores'}, 
+                    status=status.HTTP_422_UNPROCESSABLE_ENTITY
+                )
 
             dadosBandasService = dadosBandas_service()
             dados = dadosBandasService.processarDados(data)
@@ -386,10 +589,22 @@ class DadosBandas(APIView):
                 'dados': dados
             }, status=status.HTTP_200_OK)
 
-        except json.JSONDecodeError:
-            logger.error("JSON inválido recebido em dados de bandas")
-            return JsonResponse({'error': 'JSON inválido.'}, status=400)
+        except json.JSONDecodeError as e:
+            logger.error(f"JSON inválido recebido em dados de bandas: {str(e)}")
+            return JsonResponse(
+                {'error': 'JSON mal formatado. Verifique a sintaxe.'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        except ValueError as e:
+            logger.error(f"Erro de validação nos dados de bandas: {str(e)}")
+            return JsonResponse(
+                {'error': str(e)}, 
+                status=status.HTTP_422_UNPROCESSABLE_ENTITY
+            )
         except Exception as e:
-            logger.exception(f"Erro ao processar dados de bandas: {str(e)}")
-            return JsonResponse({'error': str(e)}, status=500)
+            logger.exception(f"Erro interno ao processar dados de bandas: {str(e)}")
+            return JsonResponse(
+                {'error': 'Erro interno ao processar dados. Tente novamente.'}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
