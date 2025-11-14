@@ -15,8 +15,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-# Criar diretório static
-RUN mkdir -p static
+# Criar diretórios necessários
+RUN mkdir -p static logs
 
 # Tornar o script de inicialização executável
 COPY entrypoint.sh .

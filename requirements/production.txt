@@ -1,0 +1,11 @@
+# Include base requirements
+-r base.txt
+
+# Production database (opcional - descomente quando migrar)
+# psycopg2-binary==2.9.9  # PostgreSQL
+
+# Monitoring and logging
+# sentry-sdk==1.39.2
+
+# Performance
+# django-redis==5.4.0
