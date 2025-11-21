@@ -2,17 +2,20 @@
 Gerenciador de repositório de modelos de Machine Learning.
 
 Este módulo é responsável por:
-- Salvar modelos treinados em repositório na nuvem
-- Carregar modelos específicos por cliente
+- Carregar modelos do disco local ou Google Drive
+- Gerenciar cache de modelos em memória
 - Versionamento de modelos
 - Gerenciamento de metadados dos modelos
-
-Status: Implementação futura
 """
 
 import logging
+import joblib
+import json
 from pathlib import Path
 from typing import Optional, Dict, Any
+from django.conf import settings
+
+from ml_pipeline.model_cache import model_cache
 
 logger = logging.getLogger(__name__)
 
@@ -21,48 +24,15 @@ class ModelRepository:
     """
     Repositório para armazenamento e recuperação de modelos ML.
     
-    Suporta armazenamento local e na nuvem (Google Drive inicialmente).
+    Suporta armazenamento local e na nuvem (Google Drive).
+    Cache automático em memória para performance.
     """
     
-    def __init__(self, storage_type: str = "local", config: Optional[Dict[str, Any]] = None):
-        """
-        Inicializa o repositório de modelos.
-        
-        Args:
-            storage_type (str): Tipo de armazenamento ('local', 'drive', 's3', 'azure')
-            config (dict): Configurações específicas do storage
-        """
-        self.storage_type = storage_type
-        self.config = config or {}
-        logger.info(f"ModelRepository inicializado com storage: {storage_type}")
-    
-    def save_model(
-        self, 
-        model: Any, 
-        client_id: str, 
-        model_type: str, 
-        version: str,
-        metadata: Optional[Dict[str, Any]] = None
-    ) -> str:
-        """
-        Salva modelo no repositório.
-        
-        Args:
-            model: Modelo treinado (sklearn, tensorflow, etc)
-            client_id (str): ID do cliente dono do modelo
-            model_type (str): Tipo do modelo (consumo_agua, qualidade_agua)
-            version (str): Versão do modelo (ex: v1.0.0)
-            metadata (dict): Metadados adicionais (métricas, data treino, etc)
-        
-        Returns:
-            str: Path ou ID do modelo salvo
-        
-        Raises:
-            Exception: Se falhar ao salvar o modelo
-        """
-        logger.info(f"Salvando modelo - Cliente: {client_id}, Tipo: {model_type}, Versão: {version}")
-        # TODO: Implementar salvamento
-        raise NotImplementedError("Funcionalidade em desenvolvimento")
+    def __init__(self):
+        """Inicializa o repositório de modelos."""
+        self.models_dir = settings.MODELS_DIR
+        self.cache = model_cache
+        logger.info(f"ModelRepository inicializado - Base: {self.models_dir}")
     
     def load_model(
         self, 
@@ -71,74 +41,231 @@ class ModelRepository:
         version: Optional[str] = None
     ) -> Any:
         """
-        Carrega modelo do repositório.
+        Carrega modelo do cache, disco local ou Google Drive.
+        
+        Fluxo:
+        1. Verifica cache em memória
+        2. Se não, busca no disco local
+        3. Se não, busca no Google Drive (se habilitado)
+        4. Adiciona ao cache antes de retornar
         
         Args:
-            client_id (str): ID do cliente
-            model_type (str): Tipo do modelo
-            version (str): Versão específica (se None, carrega a mais recente)
+            client_id (str): ID do cliente (ex: 'sisar')
+            model_type (str): Tipo do modelo (ex: 'ph_classification')
+            version (str, optional): Versão específica. Se None, usa a mais recente.
         
         Returns:
             model: Modelo carregado pronto para uso
         
         Raises:
-            FileNotFoundError: Se modelo não existir
+            FileNotFoundError: Se modelo não existir em nenhum lugar
             Exception: Se falhar ao carregar
         """
-        logger.info(f"Carregando modelo - Cliente: {client_id}, Tipo: {model_type}, Versão: {version or 'latest'}")
-        # TODO: Implementar carregamento
-        raise NotImplementedError("Funcionalidade em desenvolvimento")
+        try:
+            # 1. Verificar cache em memória
+            cached_model, cached_version = self.cache.get(client_id, model_type)
+            if cached_model is not None:
+                logger.info(
+                    f"Modelo '{model_type}' v{cached_version} para cliente "
+                    f"'{client_id}' carregado do CACHE"
+                )
+                return cached_model
+            
+            # 2. Buscar no disco local
+            model_path, metadata = self._get_local_model_path(
+                client_id, model_type, version
+            )
+            
+            if model_path and model_path.exists():
+                logger.info(
+                    f"Carregando modelo '{model_type}' para cliente '{client_id}' "
+                    f"do DISCO: {model_path}"
+                )
+                
+                # Carregar modelo com joblib
+                model = joblib.load(model_path)
+                
+                # Adicionar ao cache
+                model_version = metadata.get('version', version or 'unknown')
+                self.cache.set(
+                    client_id, 
+                    model_type, 
+                    model, 
+                    model_version,
+                    metadata
+                )
+                
+                logger.info(
+                    f"Modelo '{model_type}' v{model_version} para cliente "
+                    f"'{client_id}' carregado do disco e adicionado ao cache"
+                )
+                
+                return model
+            
+            # 3. Buscar no Google Drive (se habilitado)
+            if settings.GOOGLE_DRIVE_ENABLED:
+                logger.info(
+                    f"Modelo não encontrado localmente. "
+                    f"Tentando buscar no Google Drive..."
+                )
+                model = self._load_from_drive(client_id, model_type, version)
+                
+                if model:
+                    # Salvar localmente para próximas requisições
+                    self._save_local_model(client_id, model_type, model, version or 'latest')
+                    
+                    # Adicionar ao cache
+                    self.cache.set(client_id, model_type, model, version or 'latest')
+                    
+                    logger.info(
+                        f"Modelo '{model_type}' para cliente '{client_id}' "
+                        f"baixado do Drive e salvo localmente"
+                    )
+                    
+                    return model
+            
+            # Modelo não encontrado em nenhum lugar
+            raise FileNotFoundError(
+                f"Modelo '{model_type}' para cliente '{client_id}' não encontrado. "
+                f"Verifique se o modelo está em: {self.models_dir}/{model_type}/client_{client_id}/"
+            )
+            
+        except FileNotFoundError:
+            raise
+        except Exception as e:
+            logger.exception(
+                f"Erro ao carregar modelo '{model_type}' para cliente '{client_id}': {str(e)}"
+            )
+            raise Exception(f"Falha ao carregar modelo: {str(e)}")
     
-    def list_models(
+    def _get_local_model_path(
         self, 
-        client_id: Optional[str] = None, 
-        model_type: Optional[str] = None
-    ) -> list:
+        client_id: str, 
+        model_type: str, 
+        version: Optional[str] = None
+    ) -> tuple[Optional[Path], Dict[str, Any]]:
         """
-        Lista modelos disponíveis no repositório.
-        
-        Args:
-            client_id (str): Filtrar por cliente (opcional)
-            model_type (str): Filtrar por tipo (opcional)
-        
-        Returns:
-            list: Lista de modelos com metadados
-        """
-        logger.info(f"Listando modelos - Cliente: {client_id}, Tipo: {model_type}")
-        # TODO: Implementar listagem
-        raise NotImplementedError("Funcionalidade em desenvolvimento")
-    
-    def delete_model(self, client_id: str, model_type: str, version: str) -> bool:
-        """
-        Remove modelo do repositório.
+        Obtém caminho do modelo no disco local.
         
         Args:
             client_id (str): ID do cliente
             model_type (str): Tipo do modelo
-            version (str): Versão a ser removida
+            version (str, optional): Versão específica
         
         Returns:
-            bool: True se removido com sucesso
+            tuple: (path_do_modelo, metadados) ou (None, {})
         """
-        logger.info(f"Removendo modelo - Cliente: {client_id}, Tipo: {model_type}, Versão: {version}")
-        # TODO: Implementar remoção
-        raise NotImplementedError("Funcionalidade em desenvolvimento")
+        client_dir = self.models_dir / model_type / f"client_{client_id}"
+        
+        if not client_dir.exists():
+            logger.warning(f"Diretório do cliente não existe: {client_dir}")
+            return None, {}
+        
+        # Se versão não especificada, pegar a mais recente
+        if not version:
+            model_files = list(client_dir.glob("model_*.joblib"))
+            if not model_files:
+                logger.warning(f"Nenhum modelo encontrado em: {client_dir}")
+                return None, {}
+            
+            # Ordenar por nome (assume formato model_vX.X.X.joblib)
+            model_files.sort(reverse=True)
+            model_path = model_files[0]
+            
+            # Extrair versão do nome do arquivo
+            version = model_path.stem.replace('model_', '')
+        else:
+            model_path = client_dir / f"model_{version}.joblib"
+        
+        # Carregar metadados se existirem
+        metadata_path = client_dir / f"metadata_{version}.json"
+        metadata = {}
+        
+        if metadata_path.exists():
+            try:
+                with open(metadata_path, 'r', encoding='utf-8') as f:
+                    metadata = json.load(f)
+            except Exception as e:
+                logger.warning(f"Erro ao carregar metadados de {metadata_path}: {e}")
+        
+        metadata['version'] = version
+        
+        return model_path, metadata
     
-    def get_model_metadata(self, client_id: str, model_type: str, version: str) -> Dict[str, Any]:
+    def _load_from_drive(
+        self, 
+        client_id: str, 
+        model_type: str, 
+        version: Optional[str] = None
+    ) -> Optional[Any]:
         """
-        Obtém metadados de um modelo específico.
+        Carrega modelo do Google Drive.
         
         Args:
             client_id (str): ID do cliente
             model_type (str): Tipo do modelo
+            version (str, optional): Versão específica
+        
+        Returns:
+            model: Modelo carregado ou None se não encontrado
+        """
+        # TODO: Implementar integração com Google Drive na Fase 2
+        logger.warning("Google Drive ainda não implementado - retornando None")
+        return None
+    
+    def _save_local_model(
+        self, 
+        client_id: str, 
+        model_type: str, 
+        model: Any, 
+        version: str
+    ) -> Path:
+        """
+        Salva modelo no disco local.
+        
+        Args:
+            client_id (str): ID do cliente
+            model_type (str): Tipo do modelo
+            model (Any): Objeto do modelo
             version (str): Versão do modelo
         
         Returns:
-            dict: Metadados do modelo (métricas, data criação, etc)
+            Path: Caminho onde o modelo foi salvo
         """
-        logger.info(f"Obtendo metadados - Cliente: {client_id}, Tipo: {model_type}, Versão: {version}")
-        # TODO: Implementar obtenção de metadados
-        raise NotImplementedError("Funcionalidade em desenvolvimento")
+        client_dir = self.models_dir / model_type / f"client_{client_id}"
+        client_dir.mkdir(parents=True, exist_ok=True)
+        
+        model_path = client_dir / f"model_{version}.joblib"
+        
+        # Salvar modelo com joblib
+        joblib.dump(model, model_path)
+        
+        logger.info(f"Modelo salvo em: {model_path}")
+        
+        return model_path
+    
+    def invalidate_cache(
+        self, 
+        client_id: str, 
+        model_type: Optional[str] = None
+    ) -> None:
+        """
+        Invalida cache de um cliente específico.
+        
+        Útil quando modelo é atualizado e precisa ser recarregado.
+        
+        Args:
+            client_id (str): ID do cliente
+            model_type (str, optional): Tipo específico do modelo
+        """
+        self.cache.invalidate(client_id, model_type)
+        
+        suffix = f" - modelo '{model_type}'" if model_type else ""
+        logger.info(f"Cache invalidado para cliente '{client_id}'{suffix}")
+
+
+# Instância global do repositório
+model_repository = ModelRepository()
 
 
 class DriveModelStorage:

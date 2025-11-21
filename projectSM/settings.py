@@ -22,6 +22,17 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 LOGS_DIR = BASE_DIR / 'logs'
 LOGS_DIR.mkdir(exist_ok=True)
 
+# Configuração de modelos ML
+MODELS_DIR = BASE_DIR / 'ml_pipeline' / 'models'
+MODELS_DIR.mkdir(exist_ok=True, parents=True)
+
+# Cache de modelos ML
+MODEL_CACHE_TTL = config('MODEL_CACHE_TTL', default=60, cast=int)  # minutos
+
+# Google Drive (opcional - para futuro)
+GOOGLE_DRIVE_ENABLED = config('GOOGLE_DRIVE_ENABLED', default=False, cast=bool)
+GOOGLE_DRIVE_CREDENTIALS = config('GOOGLE_DRIVE_CREDENTIALS', default='')
+
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.0/howto/deployment/checklist/

@@ -10,8 +10,10 @@ from rest_framework.permissions import IsAuthenticated
 from django.http import JsonResponse
 
 # Serviço predição
-from ml_pipeline.senseFlow_A.predicao.PredicaoMensal_service import PredicaoMensal_service
-from ml_pipeline.senseFlow_A.predicao.PredicaoDiaria_service import PredicaoDiaria_service
+from ml_pipeline.senseFlow_A.predicao.predicao_service import PredicaoService
+
+# Serviço classificação pH
+from ml_pipeline.senseflowQ.ph_classification import PHClassificationService
 
 # Configure logger
 logger = logging.getLogger(__name__)
@@ -85,7 +87,7 @@ class PredicaoMensal(APIView):
                     status=status.HTTP_422_UNPROCESSABLE_ENTITY
                 )
 
-            predicao_service = PredicaoMensal_service()
+            predicao_service = PredicaoService(tipo='mensal')
             resultado = predicao_service.processarDados(data)
             
             logger.info(f"Predição mensal realizada com sucesso - {len(data)} registros processados")
@@ -179,7 +181,7 @@ class PredicaoDiaria(APIView):
                     status=status.HTTP_422_UNPROCESSABLE_ENTITY
                 )
 
-            predicao_service = PredicaoDiaria_service()
+            predicao_service = PredicaoService(tipo='diaria')
             resultado = predicao_service.processarDados(data)
             
             logger.info(f"Predição diária realizada com sucesso - {len(data)} registros processados")
@@ -607,4 +609,224 @@ class DadosBandas(APIView):
                 {'error': 'Erro interno ao processar dados. Tente novamente.'}, 
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+
+
+# ===================================================================================================================================================================================================
+class ClassificacaoPH(APIView):
+    """
+    API para classificação de pH da água usando modelos ML personalizados por cliente.
+    
+    O backend principal envia o client_id junto com o valor de pH.
+    A API carrega o modelo específico do cliente e retorna a classificação.
+    """
+    permission_classes = [IsAuthenticated]
+
+    @swagger_auto_schema(
+        operation_summary="Classificação de pH da água",
+        operation_description=(
+            "Classifica um valor de pH usando o modelo de Machine Learning específico do cliente.\n\n"
+            "Fluxo:\n"
+            "1. Recebe client_id e ph_value no body da requisição\n"
+            "2. Carrega modelo do cliente (cache → disco → Google Drive)\n"
+            "3. Faz predição com o modelo\n"
+            "4. Retorna classificação e confiança\n\n"
+            "Categorias de exemplo: 'adequado', 'alerta', 'crítico' (depende do modelo do cliente)"
+        ),
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            required=['client_id', 'ph_value'],
+            properties={
+                'client_id': openapi.Schema(
+                    type=openapi.TYPE_STRING,
+                    description='Identificador do cliente (ex: "sisar")',
+                    example='sisar'
+                ),
+                'ph_value': openapi.Schema(
+                    type=openapi.TYPE_NUMBER,
+                    description='Valor de pH a ser classificado (0-14)',
+                    example=7.2,
+                    minimum=0,
+                    maximum=14
+                )
+            }
+        ),
+        responses={
+            200: openapi.Response(
+                description='Classificação realizada com sucesso',
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        'client_id': openapi.Schema(
+                            type=openapi.TYPE_STRING,
+                            description='ID do cliente'
+                        ),
+                        'ph_value': openapi.Schema(
+                            type=openapi.TYPE_NUMBER,
+                            description='Valor de pH classificado'
+                        ),
+                        'classification': openapi.Schema(
+                            type=openapi.TYPE_STRING,
+                            description='Classe prevista pelo modelo',
+                            enum=['adequado', 'alerta', 'crítico']
+                        ),
+                        'confidence': openapi.Schema(
+                            type=openapi.TYPE_NUMBER,
+                            description='Confiança da predição (0-1), se disponível'
+                        ),
+                        'model_version': openapi.Schema(
+                            type=openapi.TYPE_STRING,
+                            description='Versão do modelo utilizado'
+                        )
+                    }
+                ),
+                examples={
+                    'application/json': {
+                        'client_id': 'sisar',
+                        'ph_value': 7.2,
+                        'classification': 'adequado',
+                        'confidence': 0.95,
+                        'model_version': 'v1.0.0'
+                    }
+                }
+            ),
+            400: openapi.Response(
+                description='Requisição inválida (JSON malformado ou campos obrigatórios ausentes)',
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        'error': openapi.Schema(
+                            type=openapi.TYPE_STRING,
+                            description='Descrição do erro'
+                        )
+                    }
+                )
+            ),
+            404: openapi.Response(
+                description='Modelo não encontrado para o cliente',
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        'error': openapi.Schema(
+                            type=openapi.TYPE_STRING,
+                            description='Mensagem indicando que modelo não foi encontrado'
+                        )
+                    }
+                )
+            ),
+            422: openapi.Response(
+                description='Dados válidos mas com conteúdo inadequado (ex: ph_value fora da faixa)',
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        'error': openapi.Schema(
+                            type=openapi.TYPE_STRING,
+                            description='Descrição do erro de validação'
+                        )
+                    }
+                )
+            ),
+            500: openapi.Response(
+                description='Erro interno do servidor',
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        'error': openapi.Schema(
+                            type=openapi.TYPE_STRING,
+                            description='Descrição do erro interno'
+                        )
+                    }
+                )
+            )
+        }
+    )
+    
+    def post(self, request):
+        try:
+            # Validar se body não está vazio
+            if not request.body:
+                logger.warning("Requisição de classificação de pH recebida sem body")
+                return JsonResponse(
+                    {'error': 'Body da requisição está vazio. Envie client_id e ph_value.'}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            data = json.loads(request.body)
+            
+            # Validar campos obrigatórios
+            if 'client_id' not in data:
+                logger.warning("Requisição sem client_id")
+                return JsonResponse(
+                    {'error': 'Campo obrigatório ausente: client_id'}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            if 'ph_value' not in data:
+                logger.warning(f"Requisição sem ph_value para cliente '{data.get('client_id')}'")
+                return JsonResponse(
+                    {'error': 'Campo obrigatório ausente: ph_value'}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            client_id = str(data['client_id']).strip()
+            
+            try:
+                ph_value = float(data['ph_value'])
+            except (ValueError, TypeError):
+                logger.warning(f"Valor de pH inválido: {data.get('ph_value')}")
+                return JsonResponse(
+                    {'error': f"ph_value deve ser um número, recebido: {data.get('ph_value')}"}, 
+                    status=status.HTTP_422_UNPROCESSABLE_ENTITY
+                )
+            
+            # Validar client_id
+            if not client_id:
+                return JsonResponse(
+                    {'error': 'client_id não pode ser vazio'}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            # Instanciar serviço de classificação
+            ph_service = PHClassificationService()
+            
+            # Fazer classificação
+            resultado = ph_service.classify(
+                client_id=client_id,
+                ph_value=ph_value
+            )
+            
+            logger.info(
+                f"pH {ph_value} classificado como '{resultado['classification']}' "
+                f"para cliente '{client_id}'"
+            )
+            
+            return JsonResponse(resultado, status=status.HTTP_200_OK)
+        
+        except json.JSONDecodeError as e:
+            logger.error(f"JSON inválido recebido na classificação de pH: {str(e)}")
+            return JsonResponse(
+                {'error': 'JSON mal formatado. Verifique a sintaxe.'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        except FileNotFoundError as e:
+            logger.error(f"Modelo não encontrado: {str(e)}")
+            return JsonResponse(
+                {
+                    'error': 'Modelo não encontrado para este cliente',
+                    'detail': str(e)
+                }, 
+                status=status.HTTP_404_NOT_FOUND
+            )
+        except ValueError as e:
+            logger.error(f"Erro de validação na classificação de pH: {str(e)}")
+            return JsonResponse(
+                {'error': str(e)}, 
+                status=status.HTTP_422_UNPROCESSABLE_ENTITY
+            )
+        except Exception as e:
+            logger.exception(f"Erro interno na classificação de pH: {str(e)}")
+            return JsonResponse(
+                {'error': 'Erro interno ao processar classificação. Tente novamente.'}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
 

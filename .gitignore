@@ -15,6 +15,7 @@ build/
 venv/
 ENV/
 env/
+credentials/
 
 # Django
 *.log
@@ -55,3 +56,4 @@ models/saved/
 # Documentation
 docs/_build/
 site/
+docsmd/

@@ -1,0 +1,13 @@
+{
+    "version": "v1.0.0",
+    "client_id": "sisar",
+    "model_type": "ph_classification",
+    "created_at": "2025-11-20T10:00:00Z",
+    "algorithm": "random_forest",
+    "classes": [
+        "alerta",
+        "crítico",
+        "adequado"
+    ],
+    "description": "Modelo de classificação de pH para cliente SISAR"
+}

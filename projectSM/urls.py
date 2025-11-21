@@ -15,6 +15,7 @@ from appSM.views import (
     Analise_estatistica_diaria,
     Analise_estatistica_mensal,
     DadosBandas,
+    ClassificacaoPH,
 )
 
 
@@ -50,6 +51,9 @@ urlpatterns = [
     # Rota de predição de consumo
     path('prediction/monthly', PredicaoMensal.as_view(), name='predicao-consumo-mensal'),
     path('prediction/daily', PredicaoDiaria.as_view(), name='predicao-consumo-diario'),
+    
+    # Rota de classificação de pH
+    path('classify/ph', ClassificacaoPH.as_view(), name='classificacao-ph'),
     
     # Swagger e autenticação
     path('token', TokenObtainPairView.as_view(), name='token_obtain_pair'),
