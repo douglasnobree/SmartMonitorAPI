@@ -18,9 +18,9 @@ COPY . .
 # Criar diretórios necessários
 RUN mkdir -p static logs
 
-# Tornar o script de inicialização executável
+# Tornar o script de inicialização executável e converter line endings
 COPY entrypoint.sh .
-RUN chmod +x entrypoint.sh
+RUN sed -i 's/\r$//' entrypoint.sh && chmod +x entrypoint.sh
 
 EXPOSE 8000
 
