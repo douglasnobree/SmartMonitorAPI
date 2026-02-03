@@ -50,7 +50,7 @@ htmlcov/
 # Model files (quando implementar persistência)
 models/saved/
 *.pkl
-*.joblib
+# *.joblib
 *.h5
 
 # Documentation

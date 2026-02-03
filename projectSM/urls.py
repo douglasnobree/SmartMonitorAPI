@@ -44,8 +44,8 @@ urlpatterns = [
     path('', schema_view.with_ui('swagger', cache_timeout=0), name='api-root'),
     
     # Rota classificação de consumo atual
-    path('statistic/diaria', Analise_estatistica_diaria.as_view(), name='classificacao-consumo-diaria'),
-    path('statistic/mensal', Analise_estatistica_mensal.as_view(), name='classificacao-consumo-mensal'),
+    path('statistic/daily', Analise_estatistica_diaria.as_view(), name='classificacao-consumo-diaria'),
+    path('statistic/monthly', Analise_estatistica_mensal.as_view(), name='classificacao-consumo-mensal'),
     path('statistic/data', DadosBandas.as_view(), name='dados-bandas'),
 
     # Rota de predição de consumo
