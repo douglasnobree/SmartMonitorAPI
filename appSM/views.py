@@ -15,6 +15,12 @@ from ml_pipeline.senseFlow_A.predicao.predicao_service import PredicaoService
 # Serviço classificação pH
 from ml_pipeline.senseflowQ.ph_classification import PHClassificationService
 
+# Serviço análise estatística
+from ml_pipeline.senseFlow_A.classificacao.analise_estatistica_service import (
+    AnaliseEstatisticaService
+)
+from ml_pipeline.senseFlow_A.classificacao.dadosBandas_service import dadosBandas_service
+
 # Configure logger
 logger = logging.getLogger(__name__)
 
@@ -209,11 +215,6 @@ class PredicaoDiaria(APIView):
     
 # Serviço classificação 
 # ===================================================================================================================================================================================================
-from ml_pipeline.senseFlow_A.classificacao.analise_estatistica_service import (
-    AnaliseEstatisticaService
-)
-from ml_pipeline.senseFlow_A.classificacao.dadosBandas_service import dadosBandas_service
-
 class Analise_estatistica_mensal(APIView):
     """
     API para classificação do consumo mensal baseado em análise estatística.
