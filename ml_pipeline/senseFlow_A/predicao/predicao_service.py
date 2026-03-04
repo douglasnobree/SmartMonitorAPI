@@ -77,27 +77,10 @@ class PredicaoService(Tratamento):
                 'Data': list(dados_request.keys()), 
                 'Consumo': list(dados_request.values())
             })
-            
             logger.debug(f"DataFrame criado com {len(df)} registros para predição {self.tipo}")
+            
             # Tratamento de valores nulos - substituir pela mediana
-            for indice in df.index:
-                if pd.isna(df.at[indice, 'Consumo']):
-                    df.at[indice, 'Consumo'] = df['Consumo'].median()
-            
-            # Cálculo do percentil para tratamento de outliers
-            percentile = df['Consumo'].quantile(0.25)
-            
-            # Para predição diária, validar se percentil é muito baixo
-            if self.tipo == self.TIPO_DIARIA and percentile < 1:
-                percentile = df['Consumo'].quantile(0.5)
-                logger.debug("Percentil ajustado para 0.5 (predição diária)")
-            
-            mean_value = df['Consumo'].mean()
-            
-            # Substituir valores abaixo do percentil pela média
-            for indice in df.index:
-                if df.at[indice, 'Consumo'] < percentile:
-                    df.at[indice, 'Consumo'] = mean_value
+            df['Consumo'].fillna(df['Consumo'].median(), inplace=True)
             
             # Calcular valores acumulados
             df["Acumulado"] = df['Consumo'].cumsum()
@@ -107,11 +90,35 @@ class PredicaoService(Tratamento):
             model = LinearRegression_Acumulado()
             model.train(df)
             
-            # Fazer predição para o próximo período
+            # Fazer predição para o próximo acumulado
             previsao = model.prediction(len(dados_request))
             
-            # Calcular diferença absoluta (consumo previsto para o próximo período)
-            resultado = abs(previsao - df['Acumulado'].iloc[-1])
+            # Aplicar ajuste se a previsão for menor que o acumulado atual (Apenas para predição diária)
+            if previsao < df['Acumulado'].iloc[-1] and self.tipo == self.TIPO_DIARIA:
+                logger.warning(
+                    f"Predição {self.tipo} é menor que o acumulado anterior: "
+                    f"{previsao:.2f} < {df['Acumulado'].iloc[-1]:.2f}"
+                    f"Realizando fator de ajuste para previsão mais realista."
+                )
+                acumulado_anterior = df['Acumulado'].iloc[-1]
+                previsao_anterior = model.prediction(len(dados_request) - 1)
+                media_acumulada = (acumulado_anterior + previsao_anterior) / 2
+                resultado = previsao - media_acumulada
+            else:
+                resultado = previsao - df['Acumulado'].iloc[-1]
+                
+                
+            if self.tipo == self.TIPO_MENSAL:
+                pred = model.prediction(list(range(len(dados_request))))
+                residuos = pred - df['Acumulado']
+                
+                sigma_erro = np.std(residuos)
+                media_erro = np.mean(residuos)
+                
+                previsao_ajustada = previsao - media_erro + 1 * sigma_erro
+                
+                # Uso do abs porque a previsão ajustada pode ser menor que o acumulado atual, o que não faz sentido para consumo futuro
+                resultado = abs(previsao_ajustada - df['Acumulado'].iloc[-1])
             
             logger.debug(
                 f"Predição {self.tipo} calculada: {resultado:.2f} "
