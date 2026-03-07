@@ -11,6 +11,7 @@ Esta API fornece serviços de análise e predição de consumo de água através
 - **Predição de Consumo**: Predição diária e mensal usando Regressão Linear
 - **Análise Estatística**: Classificação de consumo usando Bandas de Bollinger
 - **Dados Estatísticos**: Fornece dados completos das bandas para visualização
+- **Classificação de pH**: Classificação de qualidade da água usando modelos ML por cliente
 
 ## 🏗️ Arquitetura
 
@@ -147,8 +148,8 @@ Authorization: seu_token_jwt
 
 #### 📊 Análise Estatística
 
-- `POST /statistic/diaria` - Classificação de consumo diário
-- `POST /statistic/mensal` - Classificação de consumo mensal
+- `POST /statistic/daily` - Classificação de consumo diário
+- `POST /statistic/monthly` - Classificação de consumo mensal
 - `POST /statistic/data` - Dados completos das bandas de Bollinger
 
 **Formato de entrada:**
@@ -157,6 +158,18 @@ Authorization: seu_token_jwt
     "01/06/2025": 120.5,
     "02/06/2025": 115.2,
     "03/06/2025": 130.0
+}
+```
+
+#### 💧 Classificação de pH
+
+- `POST /classify/ph` - Classificação de pH da água
+
+**Formato de entrada:**
+```json
+{
+    "client_id": "sisar",
+    "ph_value": 7.2
 }
 ```
 
@@ -197,10 +210,14 @@ SmartMonitorAPI/
 │   └── authentication.py      # JWT customizado
 ├── ml_pipeline/               # Pipeline de Machine Learning
 │   ├── Tratamento.py          # Interface abstrata
-│   └── senseFlow_A/           # Análise de consumo de água
-│       ├── classificacao/     # Serviços de classificação
-│       ├── modelos/           # Modelos ML
-│       └── predicao/          # Serviços de predição
+│   ├── senseFlow_A/           # Análise de consumo de água
+│   │   ├── classificacao/     # Serviços de classificação
+│   │   ├── modelos/           # Modelos ML
+│   │   └── predicao/          # Serviços de predição
+│   ├── senseflowQ/            # Análise de qualidade de água
+│   │   └── ph_classification/ # Classificação de pH
+│   └── models/                # Modelos ML armazenados
+│       └── ph_classification/ # Modelos por cliente
 ├── static/                    # Arquivos estáticos
 ├── staticfiles/               # Arquivos coletados
 ├── requirements.txt           # Dependências Python
@@ -211,12 +228,10 @@ SmartMonitorAPI/
 
 ## 🔄 Roadmap Futuro
 
-- [ ] **Serviço de Retreino**: Sistema automatizado de retreinamento de modelos
-- [ ] **Repositório de Modelos**: Armazenamento de modelos na nuvem (Drive inicial)
-- [ ] **Multi-tenant**: Suporte a múltiplos clientes com modelos específicos
-- [ ] **SenseFlow-Q**: Análise de qualidade de água
-- [ ] **Versionamento de Modelos**: Controle de versões dos modelos ML
-- [ ] **Testes Automatizados**: Cobertura completa de testes
+- [ ] **Análise de Qualidade de Água**: Expansão para métricas adicionais de qualidade
+- [ ] **Testes Automatizados**: Cobertura completa de testes unitários e integração
+- [ ] **Métricas de Performance**: Dashboard de monitoramento de API
+- [ ] **Alertas Automáticos**: Notificações para consumo anômalo
 
 ## 🤝 Contribuindo
 

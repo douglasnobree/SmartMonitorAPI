@@ -628,7 +628,7 @@ class ClassificacaoPH(APIView):
             "Classifica um valor de pH usando o modelo de Machine Learning específico do cliente.\n\n"
             "Fluxo:\n"
             "1. Recebe client_id e ph_value no body da requisição\n"
-            "2. Carrega modelo do cliente (cache → disco → Google Drive)\n"
+            "2. Carrega modelo do cliente do disco local\n"
             "3. Faz predição com o modelo\n"
             "4. Retorna classificação e confiança\n\n"
             "Categorias de exemplo: 'adequado', 'alerta', 'crítico' (depende do modelo do cliente)"
