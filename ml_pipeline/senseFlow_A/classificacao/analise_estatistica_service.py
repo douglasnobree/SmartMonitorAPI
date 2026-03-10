@@ -39,9 +39,8 @@ class AnaliseEstatisticaService(Tratamento):
         resultado = service.processarDados(dados)
     """
     
-    # Constantes para janelas padrão
-    JANELA_DIARIA = 30
-    JANELA_MENSAL = 12
+    # Constante para janela padrão
+    JANELA_DIARIA = 7
     
     def __init__(self, janela: Optional[int] = None):
         """
@@ -84,37 +83,14 @@ class AnaliseEstatisticaService(Tratamento):
             
             logger.debug(f"DataFrame criado com {len(df)} registros")
             
-            # Cálculo da média móvel
-            df["Média Móvel"] = (
-                df["Consumo"]
-                .rolling(window=self.janela, min_periods=1)
-                .mean()
-            )
-            
-            # Cálculo do desvio padrão
-            df["Desvio Padrão"] = (
-                df["Consumo"]
-                .rolling(window=self.janela, min_periods=1)
-                .std()
-            )
-            
-            # Cálculo das bandas de Bollinger
-            df["Banda Inf 3"] = df["Média Móvel"] - 3 * df["Desvio Padrão"]
-            df["Banda Inf 2"] = df["Média Móvel"] - 2 * df["Desvio Padrão"]
-            df["Banda Inf 1"] = df["Média Móvel"] - 1 * df["Desvio Padrão"]
-            df["Banda Sup 1"] = df["Média Móvel"] + 1 * df["Desvio Padrão"]
-            df["Banda Sup 2"] = df["Média Móvel"] + 2 * df["Desvio Padrão"]
-            df["Banda Sup 3"] = df["Média Móvel"] + 3 * df["Desvio Padrão"]
+            # Calcular bandas de Bollinger
+            df = self._calcular_bandas(df)
             
             # Aplicar classificação
             df["Classificação"] = df.apply(self._classifica, axis=1)
             
             # Preencher valores nulos
-            for col in df.columns:
-                if col != 'Data' and col != 'Classificação':
-                    df[col] = df[col].fillna(0)
-                elif col == 'Classificação':
-                    df[col] = df[col].fillna("Sem classificação")
+            df = self._preencher_nulos(df, incluir_classificacao=True)
             
             # Obter último registro
             last_row = df.iloc[-1]
@@ -137,6 +113,102 @@ class AnaliseEstatisticaService(Tratamento):
         except Exception as e:
             logger.exception(f"Erro em AnaliseEstatisticaService: {str(e)}")
             raise Exception(str(e))
+    
+    def obterDadosCompletos(self, dados_request: Dict[str, float]) -> list:
+        """
+        Processa dados de consumo e retorna todos os registros com bandas calculadas.
+        
+        Args:
+            dados_request (dict): Dicionário com datas e consumos.
+                                 Formato: {'DD/MM/YYYY': valor_float}
+        
+        Returns:
+            list: Lista de dicionários contendo todos os registros com bandas calculadas
+        
+        Raises:
+            ValueError: Se dados_request estiver vazio ou inválido
+            Exception: Se houver erro no processamento dos dados
+        """
+        try:
+            if not dados_request:
+                raise ValueError("dados_request não pode estar vazio")
+            
+            # Criação do DataFrame
+            df = pd.DataFrame({
+                'Data': list(dados_request.keys()), 
+                'Consumo': list(dados_request.values())
+            })
+            
+            logger.debug(f"DataFrame criado com {len(df)} registros para dados completos")
+            
+            # Calcular bandas de Bollinger
+            df = self._calcular_bandas(df)
+            
+            # Preencher valores nulos (sem classificação)
+            df = self._preencher_nulos(df, incluir_classificacao=False)
+            
+            # Retornar todos os registros como lista de dicionários
+            return df.to_dict(orient='records')
+            
+        except ValueError as e:
+            logger.error(f"Erro de validação: {str(e)}")
+            raise
+        except Exception as e:
+            logger.exception(f"Erro em obterDadosCompletos: {str(e)}")
+            raise Exception(str(e))
+    
+    def _calcular_bandas(self, df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Calcula as bandas de Bollinger para o DataFrame.
+        
+        Args:
+            df (pd.DataFrame): DataFrame com colunas 'Data' e 'Consumo'
+        
+        Returns:
+            pd.DataFrame: DataFrame com bandas calculadas
+        """
+        # Cálculo da média móvel
+        df["Média Móvel"] = (
+            df["Consumo"]
+            .rolling(window=self.janela, min_periods=1)
+            .mean()
+        )
+        
+        # Cálculo do desvio padrão
+        df["Desvio Padrão"] = (
+            df["Consumo"]
+            .rolling(window=self.janela, min_periods=1)
+            .std()
+        )
+        
+        # Cálculo das bandas de Bollinger
+        df["Banda Inf 3"] = df["Média Móvel"] - 3 * df["Desvio Padrão"]
+        df["Banda Inf 2"] = df["Média Móvel"] - 2 * df["Desvio Padrão"]
+        df["Banda Inf 1"] = df["Média Móvel"] - 1 * df["Desvio Padrão"]
+        df["Banda Sup 1"] = df["Média Móvel"] + 1 * df["Desvio Padrão"]
+        df["Banda Sup 2"] = df["Média Móvel"] + 2 * df["Desvio Padrão"]
+        df["Banda Sup 3"] = df["Média Móvel"] + 3 * df["Desvio Padrão"]
+        
+        return df
+    
+    def _preencher_nulos(self, df: pd.DataFrame, incluir_classificacao: bool = True) -> pd.DataFrame:
+        """
+        Preenche valores nulos no DataFrame.
+        
+        Args:
+            df (pd.DataFrame): DataFrame a ser processado
+            incluir_classificacao (bool): Se deve incluir tratamento da coluna Classificação
+        
+        Returns:
+            pd.DataFrame: DataFrame com valores nulos preenchidos
+        """
+        for col in df.columns:
+            if col != 'Data' and col != 'Classificação':
+                df[col] = df[col].fillna(0)
+            elif col == 'Classificação' and incluir_classificacao:
+                df[col] = df[col].fillna("Sem classificação")
+        
+        return df
     
     @staticmethod
     def _classifica(row: pd.Series) -> Optional[int]:

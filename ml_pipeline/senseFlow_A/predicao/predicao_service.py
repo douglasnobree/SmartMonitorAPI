@@ -2,7 +2,11 @@
 Serviço unificado de predição de consumo usando Regressão Linear.
 
 Este módulo implementa a predição de consumo (diário ou mensal) baseada em
-dados históricos utilizando modelo de Regressão Linear com dados acumulados.
+dados históricos utilizando modelos de Machine Learning com injeção de dependência.
+
+Segue o Princípio de Inversão de Dependência (DIP): o serviço depende da
+interface ModeloPredicao, não de implementações concretas, permitindo
+trocar modelos facilmente sem modificar o serviço.
 """
 
 import pandas as pd
@@ -11,6 +15,7 @@ import logging
 from typing import Dict, Optional
 
 from ml_pipeline.Tratamento import Tratamento
+from ml_pipeline.modelos.base_modelo import ModeloPredicao
 from ..modelos.regressaoLinear import LinearRegression_Acumulado
 
 # Configure logger
@@ -19,20 +24,22 @@ logger = logging.getLogger(__name__)
 
 class PredicaoService(Tratamento):
     """
-    Serviço unificado para predição de consumo usando Regressão Linear.
+    Serviço unificado para predição de consumo com injeção de dependência.
     
-    Treina um modelo de Regressão Linear com dados acumulados e prevê
-    o próximo valor de consumo baseado no histórico fornecido.
+    Este serviço orquestra a predição de consumo usando qualquer modelo
+    que implemente a interface ModeloPredicao. O modelo é responsável por
+    seu próprio pré-processamento e treinamento.
     
-    Suporta predição diária e mensal com tratamento de dados configurável.
+    Suporta predição diária e mensal com ajustes de lógica de negócio.
     
     Uso:
-        # Predição diária (com validação de percentil)
+        # Predição com modelo padrão
         service = PredicaoService(tipo='diaria')
         resultado = service.processarDados(dados)
         
-        # Predição mensal (sem validação de percentil)
-        service = PredicaoService(tipo='mensal')
+        # Predição com modelo customizado (injeção de dependência)
+        modelo_custom = MeuModeloPredicao()
+        service = PredicaoService(tipo='mensal', modelo=modelo_custom)
         resultado = service.processarDados(dados)
     
     Nota: O modelo é treinado e descartado a cada requisição.
@@ -42,16 +49,23 @@ class PredicaoService(Tratamento):
     TIPO_DIARIA = 'diaria'
     TIPO_MENSAL = 'mensal'
     
-    def __init__(self, tipo: Optional[str] = None):
+    def __init__(self, tipo: Optional[str] = None, modelo: Optional[ModeloPredicao] = None):
         """
-        Inicializa o serviço de predição.
+        Inicializa o serviço de predição com injeção de dependência.
         
         Args:
             tipo (str, optional): Tipo de predição ('diaria' ou 'mensal').
                                  Se None, usa 'diaria' como padrão.
+            modelo (ModeloPredicao, optional): Implementação do modelo de predição.
+                                               Se None, usa LinearRegression_Acumulado como padrão.
         """
         self.tipo = tipo if tipo is not None else self.TIPO_DIARIA
-        logger.info(f"PredicaoService inicializado com tipo={self.tipo}")
+        # Se modelo não fornecido, criar com tipo_predicao configurado
+        self.modelo = modelo if modelo is not None else LinearRegression_Acumulado(tipo_predicao=self.tipo)
+        logger.info(
+            f"PredicaoService inicializado com tipo={self.tipo}, "
+            f"modelo={type(self.modelo).__name__}"
+        )
     
     def processarDados(self, dados_request: Dict[str, float]) -> float:
         """
@@ -72,59 +86,21 @@ class PredicaoService(Tratamento):
             if not dados_request:
                 raise ValueError("dados_request não pode estar vazio")
             
-            # Criação do DataFrame
+            # Criação do DataFrame bruto (sem pré-processamento)
             df = pd.DataFrame({
                 'Data': list(dados_request.keys()), 
                 'Consumo': list(dados_request.values())
             })
             logger.debug(f"DataFrame criado com {len(df)} registros para predição {self.tipo}")
             
-            # Tratamento de valores nulos - substituir pela mediana
-            df['Consumo'].fillna(df['Consumo'].median(), inplace=True)
+            # Delegar treinamento ao modelo (modelo faz seu próprio pré-processamento)
+            self.modelo.treinar(df)
             
-            # Calcular valores acumulados
-            df["Acumulado"] = df['Consumo'].cumsum()
-            df.reset_index(inplace=True, drop=True)
+            # Delegar predição ao modelo
+            # O modelo já aplica ajustes baseados no tipo_predicao configurado
+            resultado = self.modelo.prever(len(dados_request))
             
-            # Treinar modelo de Regressão Linear
-            model = LinearRegression_Acumulado()
-            model.train(df)
-            
-            # Fazer predição para o próximo acumulado
-            previsao = model.prediction(len(dados_request))
-            
-            # Aplicar ajuste se a previsão for menor que o acumulado atual (Apenas para predição diária)
-            if previsao < df['Acumulado'].iloc[-1] and self.tipo == self.TIPO_DIARIA:
-                logger.warning(
-                    f"Predição {self.tipo} é menor que o acumulado anterior: "
-                    f"{previsao:.2f} < {df['Acumulado'].iloc[-1]:.2f}"
-                    f"Realizando fator de ajuste para previsão mais realista."
-                )
-                acumulado_anterior = df['Acumulado'].iloc[-1]
-                previsao_anterior = model.prediction(len(dados_request) - 1)
-                media_acumulada = (acumulado_anterior + previsao_anterior) / 2
-                resultado = previsao - media_acumulada
-            else:
-                resultado = previsao - df['Acumulado'].iloc[-1]
-                
-                
-            if self.tipo == self.TIPO_MENSAL:
-                pred = model.prediction(list(range(len(dados_request))))
-                residuos = pred - df['Acumulado']
-                
-                sigma_erro = np.std(residuos)
-                media_erro = np.mean(residuos)
-                
-                previsao_ajustada = previsao - media_erro + 1 * sigma_erro
-                
-                # Uso do abs porque a previsão ajustada pode ser menor que o acumulado atual, o que não faz sentido para consumo futuro
-                resultado = abs(previsao_ajustada - df['Acumulado'].iloc[-1])
-            
-            logger.debug(
-                f"Predição {self.tipo} calculada: {resultado:.2f} "
-                f"(acumulado atual: {df['Acumulado'].iloc[-1]:.2f}, "
-                f"próximo acumulado previsto: {previsao:.2f})"
-            )
+            logger.debug(f"Predição {self.tipo} calculada: {resultado:.2f}")
             
             return resultado
             

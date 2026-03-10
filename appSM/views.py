@@ -19,8 +19,6 @@ from ml_pipeline.senseflowQ.ph_classification import PHClassificationService
 from ml_pipeline.senseFlow_A.classificacao.analise_estatistica_service import (
     AnaliseEstatisticaService
 )
-from ml_pipeline.senseFlow_A.classificacao.dadosBandas_service import dadosBandas_service
-
 # Configure logger
 logger = logging.getLogger(__name__)
 
@@ -582,8 +580,8 @@ class DadosBandas(APIView):
                     status=status.HTTP_422_UNPROCESSABLE_ENTITY
                 )
 
-            dadosBandasService = dadosBandas_service()
-            dados = dadosBandasService.processarDados(data)
+            analiseService = AnaliseEstatisticaService(janela=30)
+            dados = analiseService.obterDadosCompletos(data)
             
             logger.info(f"Dados de bandas processados - Total de registros: {len(dados)}")
             
