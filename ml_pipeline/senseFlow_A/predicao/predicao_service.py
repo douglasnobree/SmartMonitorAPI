@@ -16,7 +16,7 @@ from typing import Dict, Optional
 
 from ml_pipeline.Tratamento import Tratamento
 from ml_pipeline.modelos.base_modelo import ModeloPredicao
-from ..modelos.regressaoLinear import LinearRegression_Acumulado
+from ..modelos.regressaoLinear import LinearRegressionAcumulado
 
 # Configure logger
 logger = logging.getLogger(__name__)
@@ -57,11 +57,11 @@ class PredicaoService(Tratamento):
             tipo (str, optional): Tipo de predição ('diaria' ou 'mensal').
                                  Se None, usa 'diaria' como padrão.
             modelo (ModeloPredicao, optional): Implementação do modelo de predição.
-                                               Se None, usa LinearRegression_Acumulado como padrão.
+                                               Se None, usa LinearRegressionAcumulado como padrão.
         """
         self.tipo = tipo if tipo is not None else self.TIPO_DIARIA
         # Se modelo não fornecido, criar com tipo_predicao configurado
-        self.modelo = modelo if modelo is not None else LinearRegression_Acumulado(tipo_predicao=self.tipo)
+        self.modelo = modelo if modelo is not None else LinearRegressionAcumulado(tipo_predicao=self.tipo)
         logger.info(
             f"PredicaoService inicializado com tipo={self.tipo}, "
             f"modelo={type(self.modelo).__name__}"

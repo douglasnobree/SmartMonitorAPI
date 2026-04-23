@@ -82,6 +82,9 @@ class AnaliseEstatisticaService(Tratamento):
             })
             
             logger.debug(f"DataFrame criado com {len(df)} registros")
+
+            # Tratar outliers antes do cálculo das bandas
+            df = self._tratar_outliers_media(df)
             
             # Calcular bandas de Bollinger
             df = self._calcular_bandas(df)
@@ -140,6 +143,9 @@ class AnaliseEstatisticaService(Tratamento):
             })
             
             logger.debug(f"DataFrame criado com {len(df)} registros para dados completos")
+
+            # Tratar outliers antes do cálculo das bandas
+            df = self._tratar_outliers_media(df)
             
             # Calcular bandas de Bollinger
             df = self._calcular_bandas(df)
@@ -148,7 +154,7 @@ class AnaliseEstatisticaService(Tratamento):
             df = self._preencher_nulos(df, incluir_classificacao=False)
             
             # Retornar todos os registros como lista de dicionários
-            return df.to_dict(orient='records')
+            return df.tail(30).to_dict(orient='records')
             
         except ValueError as e:
             logger.error(f"Erro de validação: {str(e)}")
@@ -182,9 +188,9 @@ class AnaliseEstatisticaService(Tratamento):
         )
         
         # Cálculo das bandas de Bollinger
-        df["Banda Inf 3"] = df["Média Móvel"] - 3 * df["Desvio Padrão"]
-        df["Banda Inf 2"] = df["Média Móvel"] - 2 * df["Desvio Padrão"]
-        df["Banda Inf 1"] = df["Média Móvel"] - 1 * df["Desvio Padrão"]
+        df["Banda Inf 3"] = df["Média Móvel"] - 3 * df["Desvio Padrão"].clip(lower=0)
+        df["Banda Inf 2"] = df["Média Móvel"] - 2 * df["Desvio Padrão"].clip(lower=0)
+        df["Banda Inf 1"] = df["Média Móvel"] - 1 * df["Desvio Padrão"].clip(lower=0)
         df["Banda Sup 1"] = df["Média Móvel"] + 1 * df["Desvio Padrão"]
         df["Banda Sup 2"] = df["Média Móvel"] + 2 * df["Desvio Padrão"]
         df["Banda Sup 3"] = df["Média Móvel"] + 3 * df["Desvio Padrão"]
@@ -208,6 +214,53 @@ class AnaliseEstatisticaService(Tratamento):
             elif col == 'Classificação' and incluir_classificacao:
                 df[col] = df[col].fillna("Sem classificação")
         
+        return df
+
+    def _tratar_outliers_media(self, df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Detecta outliers na coluna de consumo e substitui pela média.
+
+        A detecção é feita pelo método IQR (1.5 * IQR).
+
+        Args:
+            df (pd.DataFrame): DataFrame com coluna 'Consumo'
+
+        Returns:
+            pd.DataFrame: DataFrame com outliers tratados
+        """
+        if df.empty or "Consumo" not in df.columns:
+            return df
+
+        q1 = df["Consumo"].quantile(0.25)
+        q3 = df["Consumo"].quantile(0.75)
+        iqr = q3 - q1
+
+        if pd.isna(iqr) or iqr == 0:
+            return df
+
+        limite_inferior = q1 - 1.5 * iqr
+        limite_superior = q3 + 1.5 * iqr
+
+        mascara_outliers = (
+            (df["Consumo"] < limite_inferior) |
+            (df["Consumo"] > limite_superior)
+        )
+
+        total_outliers = int(mascara_outliers.sum())
+        if total_outliers == 0:
+            return df
+
+        media_referencia = df.loc[~mascara_outliers, "Consumo"].mean()
+        if pd.isna(media_referencia):
+            media_referencia = df["Consumo"].mean()
+
+        df.loc[mascara_outliers, "Consumo"] = media_referencia
+
+        logger.info(
+            f"Outliers tratados: {total_outliers} valores substituídos "
+            f"pela média {media_referencia:.4f}"
+        )
+
         return df
     
     @staticmethod

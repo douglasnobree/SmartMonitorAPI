@@ -11,7 +11,7 @@ from sklearn.linear_model import LinearRegression
 from ml_pipeline.modelos.base_modelo import ModeloPredicao
 
 
-class LinearRegression_Acumulado(ModeloPredicao):
+class LinearRegressionAcumulado(ModeloPredicao):
     """
     Modelo de Regressão Linear que utiliza valores acumulados.
     

@@ -213,7 +213,7 @@ class PredicaoDiaria(APIView):
     
 # Serviço classificação 
 # ===================================================================================================================================================================================================
-class Analise_estatistica_mensal(APIView):
+class analise_estatistica_mensal(APIView):
     """
     API para classificação do consumo mensal baseado em análise estatística.
     Utiliza bandas de Bollinger para classificar o consumo em diferentes categorias.
@@ -290,8 +290,8 @@ class Analise_estatistica_mensal(APIView):
                     status=status.HTTP_422_UNPROCESSABLE_ENTITY
                 )
 
-            analiseEstatisticaMensalService = AnaliseEstatisticaService(janela=12)
-            classificacao = analiseEstatisticaMensalService.processarDados(data)
+            analise_estatistica_mensal_service = AnaliseEstatisticaService(janela=12)
+            classificacao = analise_estatistica_mensal_service.processarDados(data)
             
             logger.info(f"Análise mensal realizada - Data: {classificacao['Data']}, Classificação: {classificacao['Classificação']}")
             return JsonResponse({
@@ -320,7 +320,7 @@ class Analise_estatistica_mensal(APIView):
             )
         
 # ===================================================================================================================================================================================================
-class Analise_estatistica_diaria(APIView):
+class analise_estatistica_diaria(APIView):
     """
     API para classificação do consumo diário baseado em análise estatística.
     Utiliza bandas de Bollinger para classificar o consumo em diferentes categorias.
@@ -432,8 +432,8 @@ class Analise_estatistica_diaria(APIView):
                     status=status.HTTP_422_UNPROCESSABLE_ENTITY
                 )
             
-            analiseEstatisticaDiariaService = AnaliseEstatisticaService(janela=30)
-            classificacao = analiseEstatisticaDiariaService.processarDados(data)
+            analise_estatistica_diaria_service = AnaliseEstatisticaService(janela=30)
+            classificacao = analise_estatistica_diaria_service.processarDados(data)
 
             logger.info(f"Análise diária realizada - Data: {classificacao['Data']}, Classificação: {classificacao['Classificação']}")
 
@@ -580,8 +580,8 @@ class DadosBandas(APIView):
                     status=status.HTTP_422_UNPROCESSABLE_ENTITY
                 )
 
-            analiseService = AnaliseEstatisticaService(janela=30)
-            dados = analiseService.obterDadosCompletos(data)
+            analise_service = AnaliseEstatisticaService(janela=30)
+            dados = analise_service.obterDadosCompletos(data)
             
             logger.info(f"Dados de bandas processados - Total de registros: {len(dados)}")
             

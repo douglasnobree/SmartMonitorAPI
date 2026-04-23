@@ -12,8 +12,8 @@ from rest_framework_simplejwt.views import (
 from appSM.views import (
     PredicaoMensal,
     PredicaoDiaria,
-    Analise_estatistica_diaria,
-    Analise_estatistica_mensal,
+    analise_estatistica_diaria,
+    analise_estatistica_mensal,
     DadosBandas,
     ClassificacaoPH,
 )
@@ -44,8 +44,8 @@ urlpatterns = [
     path('', schema_view.with_ui('swagger', cache_timeout=0), name='api-root'),
     
     # Rota classificação de consumo atual
-    path('statistic/daily', Analise_estatistica_diaria.as_view(), name='classificacao-consumo-diaria'),
-    path('statistic/monthly', Analise_estatistica_mensal.as_view(), name='classificacao-consumo-mensal'),
+    path('statistic/daily', analise_estatistica_diaria.as_view(), name='classificacao-consumo-diaria'),
+    path('statistic/monthly', analise_estatistica_mensal.as_view(), name='classificacao-consumo-mensal'),
     path('statistic/data', DadosBandas.as_view(), name='dados-bandas'),
 
     # Rota de predição de consumo

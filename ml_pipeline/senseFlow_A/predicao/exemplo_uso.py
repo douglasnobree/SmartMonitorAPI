@@ -8,14 +8,14 @@ Este arquivo demonstra como usar o serviço de predição com:
 """
 
 from predicao_service import PredicaoService
-from ..modelos.regressaoLinear import LinearRegression_Acumulado
+from ..modelos.regressaoLinear import LinearRegressionAcumulado
 from ml_pipeline.modelos.base_modelo import ModeloPredicao
 import pandas as pd
 
 
 # ========== Exemplo 1: Uso Padrão (sem injeção) ==========
 def exemplo_uso_padrao():
-    """Uso padrão do serviço com modelo padrão LinearRegression_Acumulado."""
+    """Uso padrão do serviço com modelo padrão LinearRegressionAcumulado."""
     
     dados_historicos = {
         '01/01/2024': 100.5,
@@ -45,7 +45,7 @@ def exemplo_com_injecao():
     }
     
     # Criar modelo customizado com tipo_predicao configurado
-    modelo_custom = LinearRegression_Acumulado(tipo_predicao='mensal')
+    modelo_custom = LinearRegressionAcumulado(tipo_predicao='mensal')
     
     # Injetar modelo no serviço
     service = PredicaoService(tipo='mensal', modelo=modelo_custom)
