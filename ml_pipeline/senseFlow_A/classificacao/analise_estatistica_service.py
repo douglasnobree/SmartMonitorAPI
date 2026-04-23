@@ -80,17 +80,35 @@ class AnaliseEstatisticaService(Tratamento):
                 'Data': list(dados_request.keys()), 
                 'Consumo': list(dados_request.values())
             })
+            df_original = df.copy()
             
             logger.debug(f"DataFrame criado com {len(df)} registros")
 
             # Tratar outliers antes do cálculo das bandas
-            df = self._tratar_outliers_media(df)
+            df, mascara_outliers = self._tratar_outliers_media(df)
             
             # Calcular bandas de Bollinger
             df = self._calcular_bandas(df)
             
             # Aplicar classificação
             df["Classificação"] = df.apply(self._classifica, axis=1)
+
+            # Se o último ponto foi tratado como outlier, manter a classificação do valor original
+            last_index = df.index[-1]
+            if bool(mascara_outliers.loc[last_index]):
+                c_original = float(df_original.loc[last_index, "Consumo"])
+                df.loc[last_index, "Classificação"] = self._classificar_consumo_por_faixa(
+                    consumo=c_original,
+                    banda_sup_2=df.loc[last_index, "Banda Sup 2"],
+                    banda_sup_1=df.loc[last_index, "Banda Sup 1"],
+                    banda_inf_1=df.loc[last_index, "Banda Inf 1"],
+                    banda_inf_2=df.loc[last_index, "Banda Inf 2"],
+                )
+                df.loc[last_index, "Consumo"] = c_original
+                logger.info(
+                    "Último consumo tratado como outlier; classificação retornada "
+                    "com base no valor original para evitar mascaramento."
+                )
             
             # Preencher valores nulos
             df = self._preencher_nulos(df, incluir_classificacao=True)
@@ -145,7 +163,7 @@ class AnaliseEstatisticaService(Tratamento):
             logger.debug(f"DataFrame criado com {len(df)} registros para dados completos")
 
             # Tratar outliers antes do cálculo das bandas
-            df = self._tratar_outliers_media(df)
+            df, _ = self._tratar_outliers_media(df)
             
             # Calcular bandas de Bollinger
             df = self._calcular_bandas(df)
@@ -216,7 +234,7 @@ class AnaliseEstatisticaService(Tratamento):
         
         return df
 
-    def _tratar_outliers_media(self, df: pd.DataFrame) -> pd.DataFrame:
+    def _tratar_outliers_media(self, df: pd.DataFrame) -> tuple[pd.DataFrame, pd.Series]:
         """
         Detecta outliers na coluna de consumo e substitui pela média.
 
@@ -226,17 +244,18 @@ class AnaliseEstatisticaService(Tratamento):
             df (pd.DataFrame): DataFrame com coluna 'Consumo'
 
         Returns:
-            pd.DataFrame: DataFrame com outliers tratados
+            tuple[pd.DataFrame, pd.Series]: DataFrame com outliers tratados e
+            máscara booleana dos pontos tratados
         """
         if df.empty or "Consumo" not in df.columns:
-            return df
+            return df, pd.Series([False] * len(df), index=df.index)
 
         q1 = df["Consumo"].quantile(0.25)
         q3 = df["Consumo"].quantile(0.75)
         iqr = q3 - q1
 
         if pd.isna(iqr) or iqr == 0:
-            return df
+            return df, pd.Series([False] * len(df), index=df.index)
 
         limite_inferior = q1 - 1.5 * iqr
         limite_superior = q3 + 1.5 * iqr
@@ -248,7 +267,7 @@ class AnaliseEstatisticaService(Tratamento):
 
         total_outliers = int(mascara_outliers.sum())
         if total_outliers == 0:
-            return df
+            return df, mascara_outliers
 
         media_referencia = df.loc[~mascara_outliers, "Consumo"].mean()
         if pd.isna(media_referencia):
@@ -261,7 +280,26 @@ class AnaliseEstatisticaService(Tratamento):
             f"pela média {media_referencia:.4f}"
         )
 
-        return df
+        return df, mascara_outliers
+
+    @staticmethod
+    def _classificar_consumo_por_faixa(
+        consumo: float,
+        banda_sup_2: float,
+        banda_sup_1: float,
+        banda_inf_1: float,
+        banda_inf_2: float,
+    ) -> int:
+        """Classifica um consumo usando as bandas já calculadas."""
+        if consumo >= banda_sup_2:
+            return 2
+        if banda_sup_2 > consumo >= banda_sup_1:
+            return 1
+        if banda_sup_1 > consumo >= banda_inf_1:
+            return 0
+        if banda_inf_1 > consumo >= banda_inf_2:
+            return -1
+        return -2
     
     @staticmethod
     def _classifica(row: pd.Series) -> Optional[int]:
@@ -288,13 +326,10 @@ class AnaliseEstatisticaService(Tratamento):
             return None
         
         # Classificação baseada nas bandas
-        if c >= bs2:
-            return 2  # Muito acima do normal
-        elif bs2 > c >= bs1:
-            return 1  # Acima do normal
-        elif bs1 > c >= bi1:
-            return 0  # Normal (ideal)
-        elif bi1 > c >= bi2:
-            return -1  # Abaixo do normal
-        else:
-            return -2  # Muito abaixo do normal
+        return AnaliseEstatisticaService._classificar_consumo_por_faixa(
+            consumo=c,
+            banda_sup_2=bs2,
+            banda_sup_1=bs1,
+            banda_inf_1=bi1,
+            banda_inf_2=bi2,
+        )
