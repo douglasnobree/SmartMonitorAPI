@@ -85,20 +85,21 @@ class PredicaoService(Tratamento):
         try:
             if not dados_request:
                 raise ValueError("dados_request não pode estar vazio")
-            
-            # Criação do DataFrame bruto (sem pré-processamento)
-            df = pd.DataFrame({
-                'Data': list(dados_request.keys()), 
-                'Consumo': list(dados_request.values())
-            })
-            logger.debug(f"DataFrame criado com {len(df)} registros para predição {self.tipo}")
+
+            frequencia = self.TIPO_MENSAL if self.tipo == self.TIPO_MENSAL else self.TIPO_DIARIA
+            df = self._normalizar_historico(dados_request, frequencia=frequencia)
+            logger.debug(
+                "Historico normalizado com %s registros para predicao %s",
+                len(df),
+                self.tipo
+            )
             
             # Delegar treinamento ao modelo (modelo faz seu próprio pré-processamento)
             self.modelo.treinar(df)
             
             # Delegar predição ao modelo
             # O modelo já aplica ajustes baseados no tipo_predicao configurado
-            resultado = self.modelo.prever(len(dados_request))
+            resultado = self.modelo.prever(len(df))
             
             logger.debug(f"Predição {self.tipo} calculada: {resultado:.2f}")
             

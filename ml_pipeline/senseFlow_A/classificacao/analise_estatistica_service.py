@@ -75,11 +75,10 @@ class AnaliseEstatisticaService(Tratamento):
             if not dados_request:
                 raise ValueError("dados_request não pode estar vazio")
             
-            # Criação do DataFrame
-            df = pd.DataFrame({
-                'Data': list(dados_request.keys()), 
-                'Consumo': list(dados_request.values())
-            })
+            df = self._normalizar_historico(
+                dados_request,
+                frequencia=self._definir_frequencia()
+            )
             df_original = df.copy()
             
             logger.debug(f"DataFrame criado com {len(df)} registros")
@@ -154,11 +153,10 @@ class AnaliseEstatisticaService(Tratamento):
             if not dados_request:
                 raise ValueError("dados_request não pode estar vazio")
             
-            # Criação do DataFrame
-            df = pd.DataFrame({
-                'Data': list(dados_request.keys()), 
-                'Consumo': list(dados_request.values())
-            })
+            df = self._normalizar_historico(
+                dados_request,
+                frequencia=self._definir_frequencia()
+            )
             
             logger.debug(f"DataFrame criado com {len(df)} registros para dados completos")
 
@@ -214,6 +212,11 @@ class AnaliseEstatisticaService(Tratamento):
         df["Banda Sup 3"] = df["Média Móvel"] + 3 * df["Desvio Padrão"]
         
         return df
+
+    def _definir_frequencia(self) -> str:
+        if self.janela == 12:
+            return "mensal"
+        return "diaria"
     
     def _preencher_nulos(self, df: pd.DataFrame, incluir_classificacao: bool = True) -> pd.DataFrame:
         """
