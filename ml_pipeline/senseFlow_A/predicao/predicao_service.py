@@ -94,8 +94,14 @@ class PredicaoService(Tratamento):
                 self.tipo
             )
             
+            df_copiado = df.copy()
+            df_tratado, _ = self._tratar_outliers_mediana(df_copiado)
+            
+            print(f"Dados tratados para predição {self.tipo}:\n{df_tratado}")
+            print(f"Dados originais para predição {self.tipo}:\n{df}")
+            
             # Delegar treinamento ao modelo (modelo faz seu próprio pré-processamento)
-            self.modelo.treinar(df)
+            self.modelo.treinar(df_tratado)
             
             # Delegar predição ao modelo
             # O modelo já aplica ajustes baseados no tipo_predicao configurado
@@ -111,3 +117,55 @@ class PredicaoService(Tratamento):
         except Exception as e:
             logger.exception(f"Erro em PredicaoService ({self.tipo}): {str(e)}")
             raise Exception(str(e))
+
+
+    def _tratar_outliers_mediana(self, df: pd.DataFrame) -> tuple[pd.DataFrame, pd.Series]:
+            """
+            Detecta outliers na coluna de consumo e substitui pela mediana.
+
+            A detecção é feita pelo método IQR (3.0 * IQR), com uma faixa mais
+            conservadora para evitar que variações normais do histórico sejam
+            tratadas como outliers na predição.
+
+            Args:
+                df (pd.DataFrame): DataFrame com coluna 'Consumo'
+
+            Returns:
+                tuple[pd.DataFrame, pd.Series]: DataFrame com outliers tratados e
+                máscara booleana dos pontos tratados
+            """
+            if df.empty or "Consumo" not in df.columns:
+                return df, pd.Series([False] * len(df), index=df.index)
+
+            q1 = df["Consumo"].quantile(0.25)
+            q3 = df["Consumo"].quantile(0.75)
+            iqr = q3 - q1
+
+            if pd.isna(iqr) or iqr == 0:
+                return df, pd.Series([False] * len(df), index=df.index)
+
+            multiplicador_iqr = 3.0
+            limite_inferior = q1 - multiplicador_iqr * iqr
+            limite_superior = q3 + multiplicador_iqr * iqr
+
+            mascara_outliers = (
+                (df["Consumo"] < limite_inferior) |
+                (df["Consumo"] > limite_superior)
+            )
+
+            total_outliers = int(mascara_outliers.sum())
+            if total_outliers == 0:
+                return df, mascara_outliers
+
+            mediana_referencia = df.loc[~mascara_outliers, "Consumo"].median()
+            if pd.isna(mediana_referencia):
+                mediana_referencia = df["Consumo"].median()
+
+            df.loc[mascara_outliers, "Consumo"] = mediana_referencia
+
+            logger.info(
+                f"Outliers tratados: {total_outliers} valores substituídos "
+                f"pela mediana {mediana_referencia:.4f}"
+            )
+
+            return df, mascara_outliers
