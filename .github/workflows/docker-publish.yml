@@ -79,11 +79,18 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
             docker pull ${{ secrets.DOCKERHUB_USERNAME }}/djangosmartmonitor:latest
+
             docker stop django_app || true
             docker rm django_app || true
+
             docker run -d \
               --name django_app \
               --restart unless-stopped \
+              --env-file /home/senseflow/python-api/source/.env \
+              -v /home/senseflow/python-api/source/.env:/app/.env \
+              -v /home/senseflow/python-api/source/staticfiles:/app/staticfiles \
+              -v django_media:/app/media \
               -p 127.0.0.1:8000:8000 \
               ${{ secrets.DOCKERHUB_USERNAME }}/djangosmartmonitor:latest
+
             docker image prune -f
