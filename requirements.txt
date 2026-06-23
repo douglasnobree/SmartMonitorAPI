@@ -15,6 +15,7 @@ numpy==2.2.1
 openpyxl==3.1.5
 packaging==24.2
 pandas==2.2.3
+PyMySQL==1.1.1
 python-decouple==3.8
 PyJWT==2.10.1
 pyparsing==3.2.3
@@ -26,6 +27,7 @@ scikit-learn==1.6.0
 scipy==1.15.0
 setuptools==75.7.0
 six==1.17.0
+SQLAlchemy==2.0.36
 sqlparse==0.5.3
 threadpoolctl==3.5.0
 tzdata==2024.2

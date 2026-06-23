@@ -17,6 +17,13 @@ from appSM.views import (
     DadosBandas,
     ClassificacaoPH,
 )
+from appSM.v2_views import (
+    V2PredicaoDiaria,
+    V2PredicaoMensal,
+    V2AnaliseEstatisticaDiaria,
+    V2AnaliseEstatisticaMensal,
+    V2DadosBandas,
+)
 
 
 schema_view = get_schema_view(
@@ -27,8 +34,9 @@ schema_view = get_schema_view(
                    "- Classificação do consumo atual em categorias baseadas em bandas de Bollinger\n"
                    "- Obtenção de dados estatísticos completos para análise\n"
                    "- Predição de consumo futuro utilizando modelos de aprendizado de máquina\n\n"
+                   "A v1 mantém o contrato legado com payload completo; a v2 usa filtros e consulta banco externo read-only.\n\n"
                    "Todas as rotas requerem autenticação JWT, que pode ser obtida através do endpoint /token/",
-        terms_of_service="https://www.smartmonitor.ifce.edu.br/",
+        terms_of_service="https://resourcify.com.br/",
         contact=openapi.Contact(email="RESOURCIFYLTDA@GMAIL.COM"),
         license=openapi.License(name="BSD License"),
     ),
@@ -47,10 +55,18 @@ urlpatterns = [
     path('statistic/daily', analise_estatistica_diaria.as_view(), name='classificacao-consumo-diaria'),
     path('statistic/monthly', analise_estatistica_mensal.as_view(), name='classificacao-consumo-mensal'),
     path('statistic/data', DadosBandas.as_view(), name='dados-bandas'),
-
+    
     # Rota de predição de consumo
     path('prediction/monthly', PredicaoMensal.as_view(), name='predicao-consumo-mensal'),
     path('prediction/daily', PredicaoDiaria.as_view(), name='predicao-consumo-diario'),
+
+    # Rotas v2
+    path('v2/prediction/daily', V2PredicaoDiaria.as_view(), name='v2-predicao-consumo-diario'),
+    path('v2/prediction/monthly', V2PredicaoMensal.as_view(), name='v2-predicao-consumo-mensal'),
+    path('v2/statistic/daily', V2AnaliseEstatisticaDiaria.as_view(), name='v2-classificacao-consumo-diaria'),
+    path('v2/statistic/monthly', V2AnaliseEstatisticaMensal.as_view(), name='v2-classificacao-consumo-mensal'),
+    path('v2/statistic/data', V2DadosBandas.as_view(), name='v2-dados-bandas'),
+
     
     # Rota de classificação de pH
     path('classify/ph', ClassificacaoPH.as_view(), name='classificacao-ph'),
