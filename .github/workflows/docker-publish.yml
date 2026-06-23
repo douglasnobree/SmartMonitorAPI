@@ -70,3 +70,20 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      - name: Deploy to server
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: root
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            docker pull ${{ secrets.DOCKERHUB_USERNAME }}/djangosmartmonitor:latest
+            docker stop django_app || true
+            docker rm django_app || true
+            docker run -d \
+              --name django_app \
+              --restart unless-stopped \
+              -p 127.0.0.1:8000:8000 \
+              ${{ secrets.DOCKERHUB_USERNAME }}/djangosmartmonitor:latest
+            docker image prune -f
