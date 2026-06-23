@@ -100,7 +100,7 @@ docker-compose up --build
 
 2. **Acesse a aplicação**
 - API: http://localhost:8000
-- Documentação: http://localhost:8000/ (Swagger)
+- Documentação: http://localhost:8000/ (Swagger), http://localhost:8000/swagger e http://localhost:8000/redoc
 
 ## 📚 Documentação da API
 
@@ -110,7 +110,8 @@ A documentação interativa está disponível via Swagger UI:
 
 ### Autenticação
 
-Todos os endpoints (exceto `/token`) requerem autenticação JWT.
+Os endpoints de negocio (`/prediction/*`, `/statistic/*`, `/classify/ph` e `/v2/*`) requerem autenticação JWT.
+Os endpoints públicos são `/token`, `/`, `/swagger` e `/redoc`.
 
 #### Obter Token
 
@@ -129,6 +130,8 @@ Content-Type: application/json
 ```bash
 Authorization: seu_token_jwt
 ```
+
+Observação: o token é enviado sem prefixo `Bearer`.
 
 ### Endpoints Principais
 
@@ -165,6 +168,8 @@ Authorization: seu_token_jwt
 
 - `POST /classify/ph` - Classificação de pH da água
 
+Observação: o classificador de pH atual é um fluxo inicial de teste e, no estado presente, retorna uma classe simples de faixa/estado. O contrato pode evoluir no futuro.
+
 **Formato de entrada:**
 ```json
 {
@@ -172,6 +177,39 @@ Authorization: seu_token_jwt
     "ph_value": 7.2
 }
 ```
+
+#### Versão 2
+
+A versão `v2` continua autenticada, mas busca o histórico em banco externo somente leitura.
+Essa integração é pensada para estabilidade de longo prazo, mas depende de um banco mantido por terceiros.
+
+- `POST /v2/prediction/daily` - Predição diária por `sensor_id`
+- `POST /v2/prediction/monthly` - Predição mensal por `unidade_id` e, opcionalmente, `dispositivo_id`
+- `POST /v2/statistic/daily` - Classificação diária por `sensor_id`
+- `POST /v2/statistic/monthly` - Classificação mensal por `unidade_id` e, opcionalmente, `dispositivo_id`
+- `POST /v2/statistic/data` - Dados completos das bandas diárias por `sensor_id`
+
+**Exemplos de entrada v2:**
+```json
+{
+    "sensor_id": "SENSOR-001"
+}
+```
+
+```json
+{
+    "unidade_id": 12,
+    "dispositivo_id": "disp-123"
+}
+```
+
+#### Rotas de infraestrutura
+
+- `GET /` - Swagger UI
+- `GET /swagger` - Swagger UI
+- `GET /redoc` - Redoc UI
+- `GET /admin` - Django Admin
+- `POST /token` - Obtenção de access/refresh JWT
 
 ## 🧪 Como Funciona
 
@@ -195,6 +233,12 @@ Authorization: seu_token_jwt
    - **Faixa ideal** (normal)
    - **Faixa superior 1** (acima)
    - **Faixa superior 2** (muito acima)
+
+### Observações operacionais
+
+- O endpoint `/token` retorna `access` e `refresh`.
+- A rota de refresh dedicada está comentada no código atual.
+- A ordenação do histórico é feita por data após normalização, e datas duplicadas são agregadas pela mediana.
 
 ## 📁 Estrutura do Projeto
 

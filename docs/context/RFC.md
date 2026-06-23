@@ -8,7 +8,7 @@ API REST Django para analise de consumo de agua e classificacao de pH. Atua como
 - Autenticacao: JWT via SimpleJWT, header Authorization sem prefixo. [Fonte: codigo]
 - Persistencia: SQLite (db.sqlite3) para auth/admin e metadados Django. [Fonte: codigo]
 - ML/Analise: pipeline local com pandas/scikit-learn; modelos pH em disco. [Fonte: codigo]
-- Observabilidade: logging em arquivo e console; Prometheus middleware e endpoints. [Fonte: codigo]
+- Observabilidade: logging em arquivo e console; sem exportacao Prometheus no codigo atual. [Fonte: codigo]
 - Deploy: Docker + Gunicorn + WhiteNoise; opcional PM2. [Fonte: README][Fonte: codigo]
 
 ## Fluxo da requisicao
@@ -19,10 +19,12 @@ API REST Django para analise de consumo de agua e classificacao de pH. Atua como
 
 ## Componentes
 - appSM.views: endpoints de predicao, analise estatistica e classificacao de pH. [Fonte: codigo]
+- appSM.v2_views: endpoints v2 com consulta a banco externo read-only. [Fonte: codigo]
 - ml_pipeline.senseFlow_A: servicos de predicao e analise estatistica. [Fonte: codigo]
 - ml_pipeline.senseflowQ: servico de classificacao de pH. [Fonte: codigo]
+- appSM.db_fetcher: acesso ao banco externo e agregacao do historico. [Fonte: codigo]
 - projectSM.authentication: autenticacao JWT customizada (sem prefixo). [Fonte: codigo]
-- projectSM.settings: configuracao de logs, staticfiles, DB, Prometheus. [Fonte: codigo]
+- projectSM.settings: configuracao de logs, staticfiles e DB. [Fonte: codigo]
 
 ## Contratos
 Tabela de endpoints principais (todos com JWT, exceto /token e docs).
@@ -42,6 +44,18 @@ Tabela de endpoints principais (todos com JWT, exceto /token e docs).
 | /admin | GET | Admin Django | - | UI | 302/403 | Django admin | Nenhum |
 
 [Fontes: codigo]
+
+### Contratos v2
+
+As rotas `v2` continuam autenticadas, mas trocam o payload legado por filtros de consulta ao banco externo somente leitura.
+
+| Endpoint | Metodo | Objetivo | Entradas | Saidas | Erros | Dependencias | Efeitos colaterais |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| /v2/prediction/daily | POST | Predicao diaria por sensor | sensor_id | {Prediction} | 400, 422, 404, 500 | ExternalDataFetcher, PredicaoService | Consulta banco externo |
+| /v2/prediction/monthly | POST | Predicao mensal por unidade | unidade_id, dispositivo_id? | {Prediction} | 400, 422, 404, 500 | ExternalDataFetcher, PredicaoService | Consulta banco externo |
+| /v2/statistic/daily | POST | Classificacao diaria por sensor | sensor_id | {Data, Consumo, classificacao} | 400, 422, 404, 500 | ExternalDataFetcher, AnaliseEstatisticaService | Consulta banco externo |
+| /v2/statistic/monthly | POST | Classificacao mensal por unidade | unidade_id, dispositivo_id? | {Data, Consumo, classificacao} | 400, 422, 404, 500 | ExternalDataFetcher, AnaliseEstatisticaService | Consulta banco externo |
+| /v2/statistic/data | POST | Dados completos bandas diarias | sensor_id | {dados: [..]} | 400, 422, 404, 500 | ExternalDataFetcher, AnaliseEstatisticaService | Consulta banco externo |
 
 ## Sequencia operacional
 Predicao e analise seguem fluxo request -> parse JSON -> validar -> processar -> responder.
@@ -64,7 +78,7 @@ sequenceDiagram
 
 ## Observabilidade
 - Logs em console e arquivos rotativos (smartmonitor.log, errors.log). [Fonte: codigo]
-- Middleware e endpoints Prometheus habilitados. [Fonte: codigo]
+- Nao ha middleware nem endpoint Prometheus exposto no codigo atual. [Fonte: codigo]
 
 ## Seguranca
 - JWT via SimpleJWT; header Authorization sem prefixo Bearer. [Fonte: codigo]
@@ -74,18 +88,20 @@ sequenceDiagram
 ## Estrategia de evolucao
 - Substituicao de modelos de predicao via injeccao de dependencia (interface ModeloPredicao). [Fonte: codigo]
 - Modelos de pH versionados por nome de arquivo. [Fonte: codigo]
+- O contrato de pH atual e propositalmente basico e pode mudar para um fluxo mais completo em iteracoes futuras. [Fonte: usuario]
+- A integracao v2 com banco de terceiros e planejada para longo prazo, mas depende de um schema e disponibilidade fora do controle da API. [Fonte: usuario]
 
 ## Compatibilidade
 - Expectativa de payload como JSON object (dict) com chaves de data no formato DD/MM/YYYY. [Fonte: codigo]
-- Ordem dos dados segue ordem do JSON recebido; nao ha ordenacao por data. [Inferencia]
+- Ordem dos dados e normalizada por data; duplicatas sao agregadas pela mediana e lacunas sao preenchidas pela mediana. [Fonte: codigo]
 
 ## Debito tecnico
 - Serializer para validacao de datas existe mas nao e usado nas views. [Fonte: codigo]
 - Endpoint de refresh token comentado. [Fonte: codigo]
 - Sem OpenAPI exportado para versionamento de contrato. [Fonte: codigo]
+- Limites de payload e rate limit ainda nao foram definidos. [Fonte: usuario]
 
 ## Perguntas abertas
-- [GAP] Qual o comportamento esperado para ordenacao por data? [Inferencia]
-- [GAP] Existe limite de tamanho de payload para predicoes/analises? [Inferencia]
-- [GAP] Quais classes validas de pH por cliente e como versionar? [Inferencia]
-- [GAP] Politica de rotacao e expurgo de modelos pH? [Inferencia]
+- [GAP] Como versionar a evolucao futura do contrato de pH sem quebrar o fluxo existente? [Fonte: usuario]
+- [GAP] Como lidar com mudancas de schema ou indisponibilidade no banco externo de terceiros? [Fonte: usuario]
+- [GAP] Qual politica final de limite de payload e rate limit? [Fonte: usuario]
