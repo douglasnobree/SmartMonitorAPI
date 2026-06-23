@@ -248,7 +248,7 @@ Este projeto está sob a licença BSD.
 ## 👥 Equipe
 
 - **Contato:** RESOURCIFYLTDA@GMAIL.COM
-- **Site:** https://www.smartmonitor.ifce.edu.br/
+- **Site:** https://www.senseflow.com.br/
 
 ## 📝 Notas de Desenvolvimento
 

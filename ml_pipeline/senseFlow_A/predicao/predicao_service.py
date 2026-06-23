@@ -9,6 +9,8 @@ interface ModeloPredicao, não de implementações concretas, permitindo
 trocar modelos facilmente sem modificar o serviço.
 """
 
+from time import time
+
 import pandas as pd
 import numpy as np
 import logging
@@ -93,19 +95,15 @@ class PredicaoService(Tratamento):
                 len(df),
                 self.tipo
             )
-            
-            df_copiado = df.copy()
+            df_copiado = df.iloc[-31:-1].copy()
             df_tratado, _ = self._tratar_outliers_mediana(df_copiado)
-            
-            print(f"Dados tratados para predição {self.tipo}:\n{df_tratado}")
-            print(f"Dados originais para predição {self.tipo}:\n{df}")
             
             # Delegar treinamento ao modelo (modelo faz seu próprio pré-processamento)
             self.modelo.treinar(df_tratado)
             
             # Delegar predição ao modelo
             # O modelo já aplica ajustes baseados no tipo_predicao configurado
-            resultado = self.modelo.prever(len(df))
+            resultado = self.modelo.prever(len(df_tratado))
             
             logger.debug(f"Predição {self.tipo} calculada: {resultado:.2f}")
             

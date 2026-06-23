@@ -38,7 +38,7 @@ class LinearRegressionAcumulado(ModeloPredicao):
         df = dados_brutos.copy()
         
         # Pré-processamento específico deste modelo
-        df['Consumo'].fillna(df['Consumo'].median(), inplace=True)
+        df['Consumo'] = df['Consumo'].fillna(df['Consumo'].median())
         df['Acumulado'] = df['Consumo'].cumsum()
         df.reset_index(inplace=True, drop=True)
         
