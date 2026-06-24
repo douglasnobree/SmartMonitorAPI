@@ -10,8 +10,14 @@ from rest_framework.exceptions import ParseError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
 
-from appSM.db_fetcher import ExternalDataFetcher, ExternalDataNotFoundError, dataframe_para_historico
-from appSM.serializers import V2DailySerializer, V2MonthlySerializer
+from appSM.db_fetcher import (
+    ExternalDataFetcher,
+    ExternalDataNotFoundError,
+    ExternalDeviceNotFoundError,
+    dataframe_para_historico,
+)
+from appSM.serializers import V2ClassificationHistorySerializer, V2DailySerializer, V2MonthlySerializer
+from appSM.services.classification_history_service import ClassificationHistoryService
 from ml_pipeline.senseFlow_A.classificacao.analise_estatistica_service import AnaliseEstatisticaService
 from ml_pipeline.senseFlow_A.predicao.predicao_service import PredicaoService
 
@@ -159,6 +165,50 @@ class V2DadosBandas(_V2BaseView):
             return JsonResponse({"dados": dados}, status=status.HTTP_200_OK)
         except ExternalDataNotFoundError as exc:
             return JsonResponse({"error": str(exc)}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as exc:
+            logger.exception("Erro interno: %s", exc)
+            return JsonResponse({"error": "Erro interno."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class V2ClassificationHistory(_V2BaseView):
+    serializer_class = V2ClassificationHistorySerializer
+
+    @swagger_auto_schema(
+        operation_summary="[v2] Classificacao historica para relatorios",
+        request_body=V2ClassificationHistorySerializer,
+        responses={
+            200: openapi.Response(
+                "Classificacoes calculadas",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        "results": openapi.Schema(
+                            type=openapi.TYPE_ARRAY,
+                            items=openapi.Schema(
+                                type=openapi.TYPE_OBJECT,
+                                properties={
+                                    "periodo": openapi.Schema(type=openapi.TYPE_STRING),
+                                    "consumo": openapi.Schema(type=openapi.TYPE_NUMBER),
+                                    "classificacao": openapi.Schema(type=openapi.TYPE_STRING),
+                                },
+                            ),
+                        )
+                    },
+                ),
+            )
+        },
+    )
+    def post(self, request):
+        validated_data, error_response = self._validate_payload(request)
+        if error_response is not None: return error_response
+
+        try:
+            resultado = ClassificationHistoryService().processar(validated_data)
+            return JsonResponse(resultado, status=status.HTTP_200_OK)
+        except (ExternalDataNotFoundError, ExternalDeviceNotFoundError) as exc:
+            return JsonResponse({"error": str(exc)}, status=status.HTTP_404_NOT_FOUND)
+        except ValueError as exc:
+            return JsonResponse({"error": str(exc)}, status=status.HTTP_422_UNPROCESSABLE_ENTITY)
         except Exception as exc:
             logger.exception("Erro interno: %s", exc)
             return JsonResponse({"error": "Erro interno."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

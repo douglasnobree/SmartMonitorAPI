@@ -11,6 +11,7 @@ from rest_framework import serializers
 from rest_framework.test import APIClient, APITestCase
 
 from appSM.serializers import MySerializer
+from appSM.services.classification_history_service import ClassificationHistoryService
 from ml_pipeline.senseFlow_A.predicao.predicao_service import PredicaoService
 from ml_pipeline.senseFlow_A.classificacao.analise_estatistica_service import (
     AnaliseEstatisticaService,
@@ -198,6 +199,56 @@ class AnaliseEstatisticaServiceTests(SimpleTestCase):
             service.processarDados({})
 
 
+class ClassificationHistoryServiceTests(SimpleTestCase):
+    def test_daily_usa_contexto_e_retorna_apenas_periodo_solicitado(self):
+        """Cenario: ha dados anteriores ao periodo solicitado.
+        Resultado esperado: contexto entra no pipeline, mas a resposta fica restrita a janela."""
+
+        class FakeFetcher:
+            def fetch_history_daily_report(self, unidade_id, data_inicio, data_fim):
+                index = pd.date_range("2026-05-30", "2026-06-03", freq="D")
+                return pd.DataFrame({"Consumo": [7.0, 8.0, 9.0, 10.0, 11.0]}, index=index)
+
+        class FakeAnalysisService:
+            calls = []
+
+            def __init__(self, janela):
+                self.janela = janela
+
+            def processarDados(self, historico):
+                self.calls.append(historico)
+                ultima_data, ultimo_consumo = list(historico.items())[-1]
+                return {"Data": ultima_data, "Consumo": ultimo_consumo, "Classificação": -2}
+
+        service = ClassificationHistoryService(
+            fetcher=FakeFetcher(),
+            analysis_service_cls=FakeAnalysisService,
+        )
+
+        resultado = service.processar(
+            {
+                "type": "daily",
+                "unidade_id": 10,
+                "data_inicio": date(2026, 6, 1),
+                "data_fim": date(2026, 6, 3),
+            }
+        )
+
+        self.assertEqual(len(resultado["results"]), 3)
+        self.assertEqual(resultado["results"][0]["periodo"], "01/06/2026")
+        self.assertEqual(resultado["results"][0]["classificacao"], "Economia Máxima")
+        self.assertIn("30/05/2026", FakeAnalysisService.calls[0])
+        self.assertNotIn("31/05/2026", [item["periodo"] for item in resultado["results"]])
+
+    def test_periodos_mensais_respeitam_dia_fechamento(self):
+        """Cenario: o fechamento configurado e dia 14.
+        Resultado esperado: os ciclos do ano terminam no dia anterior do mes de referencia."""
+        periodos = ClassificationHistoryService._periodos_do_ano(2026, 14)
+
+        self.assertEqual(periodos[0], (date(2025, 12, 14), date(2026, 1, 13)))
+        self.assertEqual(periodos[1], (date(2026, 1, 14), date(2026, 2, 13)))
+
+
 class TokenEndpointTests(TestCase):
     def setUp(self):
         self.client = APIClient()
@@ -328,6 +379,45 @@ class PredictionAndAnalysisAPITests(APITestCase):
         response = anon_client.post(reverse("predicao-consumo-diario"), build_daily_history(), format="json")
 
         self.assertEqual(response.status_code, 401)
+
+    def test_v2_classification_history_daily_sucesso(self):
+        """Cenario: relatorio historico diario recebe filtros validos.
+        Resultado esperado: HTTP 200 com results retornado pelo servico."""
+        payload = {
+            "type": "daily",
+            "unidade_id": 10,
+            "data_inicio": "2026-06-01",
+            "data_fim": "2026-06-03",
+        }
+
+        with patch("appSM.v2_views.ClassificationHistoryService") as mock_service_cls:
+            mock_service = mock_service_cls.return_value
+            mock_service.processar.return_value = {
+                "results": [
+                    {"periodo": "01/06/2026", "consumo": 9.34, "classificacao": "Economia Máxima"}
+                ]
+            }
+
+            response = self.client.post(reverse("v2-classification-history"), payload, format="json")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["results"][0]["periodo"], "01/06/2026")
+        mock_service.processar.assert_called_once()
+        self.assertEqual(mock_service.processar.call_args.args[0]["unidade_id"], 10)
+
+    def test_v2_classification_history_periodo_invalido_retorna_422(self):
+        """Cenario: data_inicio e maior que data_fim.
+        Resultado esperado: HTTP 422 seguindo o padrao v2 de payload invalido."""
+        payload = {
+            "type": "daily",
+            "unidade_id": 10,
+            "data_inicio": "2026-06-30",
+            "data_fim": "2026-06-01",
+        }
+
+        response = self.client.post(reverse("v2-classification-history"), payload, format="json")
+
+        self.assertEqual(response.status_code, 422)
 
     def test_analise_diaria_sucesso_retorna_classificacao(self):
         """Cenário: a análise diária recebe dados válidos.

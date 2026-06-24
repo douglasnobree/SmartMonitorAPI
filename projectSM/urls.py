@@ -22,6 +22,7 @@ from appSM.v2_views import (
     V2PredicaoMensal,
     V2AnaliseEstatisticaDiaria,
     V2AnaliseEstatisticaMensal,
+    V2ClassificationHistory,
     V2DadosBandas,
 )
 
@@ -66,6 +67,7 @@ urlpatterns = [
     path('v2/statistic/daily', V2AnaliseEstatisticaDiaria.as_view(), name='v2-classificacao-consumo-diaria'),
     path('v2/statistic/monthly', V2AnaliseEstatisticaMensal.as_view(), name='v2-classificacao-consumo-mensal'),
     path('v2/statistic/data', V2DadosBandas.as_view(), name='v2-dados-bandas'),
+    path('v2/classification/history', V2ClassificationHistory.as_view(), name='v2-classification-history'),
 
     
     # Rota de classificação de pH

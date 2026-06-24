@@ -56,6 +56,7 @@ As rotas `v2` continuam autenticadas, mas trocam o payload legado por filtros de
 | /v2/statistic/daily | POST | Classificacao diaria por sensor | sensor_id | {Data, Consumo, classificacao} | 400, 422, 404, 500 | ExternalDataFetcher, AnaliseEstatisticaService | Consulta banco externo |
 | /v2/statistic/monthly | POST | Classificacao mensal por unidade | unidade_id, dispositivo_id? | {Data, Consumo, classificacao} | 400, 422, 404, 500 | ExternalDataFetcher, AnaliseEstatisticaService | Consulta banco externo |
 | /v2/statistic/data | POST | Dados completos bandas diarias | sensor_id | {dados: [..]} | 400, 422, 404, 500 | ExternalDataFetcher, AnaliseEstatisticaService | Consulta banco externo |
+| /v2/classification/history | POST | Classificacao historica para relatorios | type=daily, unidade_id, data_inicio, data_fim ou type=monthly, unidade_id, ano, dispositivo_id? | {results: [{periodo, consumo, classificacao}]} | 400, 422, 404, 500 | ClassificationHistoryService, ExternalDataFetcher, AnaliseEstatisticaService | Consulta banco externo; usa contexto historico sem retorna-lo |
 
 ## Sequencia operacional
 Predicao e analise seguem fluxo request -> parse JSON -> validar -> processar -> responder.

@@ -11,6 +11,7 @@ API REST Django para predicao de consumo, analise estatistica e classificacao de
 - Autenticacao: [projectSM/authentication.py](projectSM/authentication.py)
 - Configuracao: [projectSM/settings.py](projectSM/settings.py)
 - Normalizacao de historico: [ml_pipeline/Tratamento.py](ml_pipeline/Tratamento.py)
+- Relatorio historico de classificacao: [appSM/services/classification_history_service.py](appSM/services/classification_history_service.py)
 
 ## Onde encontrar regras
 - Regras de predicao e tratamento: [ml_pipeline/senseFlow_A/predicao/predicao_service.py](ml_pipeline/senseFlow_A/predicao/predicao_service.py) e [ml_pipeline/senseFlow_A/modelos/regressaoLinear.py](ml_pipeline/senseFlow_A/modelos/regressaoLinear.py)

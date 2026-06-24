@@ -188,6 +188,7 @@ Essa integração é pensada para estabilidade de longo prazo, mas depende de um
 - `POST /v2/statistic/daily` - Classificação diária por `sensor_id`
 - `POST /v2/statistic/monthly` - Classificação mensal por `unidade_id` e, opcionalmente, `dispositivo_id`
 - `POST /v2/statistic/data` - Dados completos das bandas diárias por `sensor_id`
+- `POST /v2/classification/history` - Classificação histórica para relatórios por `unidade_id`, em modo `daily` ou `monthly`
 
 **Exemplos de entrada v2:**
 ```json
@@ -199,6 +200,24 @@ Essa integração é pensada para estabilidade de longo prazo, mas depende de um
 ```json
 {
     "unidade_id": 12,
+    "dispositivo_id": "disp-123"
+}
+```
+
+```json
+{
+    "type": "daily",
+    "unidade_id": 12,
+    "data_inicio": "2026-06-01",
+    "data_fim": "2026-06-30"
+}
+```
+
+```json
+{
+    "type": "monthly",
+    "unidade_id": 12,
+    "ano": 2026,
     "dispositivo_id": "disp-123"
 }
 ```

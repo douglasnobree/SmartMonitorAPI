@@ -14,6 +14,10 @@ class ExternalDataNotFoundError(LookupError):
     """Lançada quando não há registros para os filtros informados."""
 
 
+class ExternalDeviceNotFoundError(LookupError):
+    """Lançada quando o dispositivo informado não existe no banco externo."""
+
+
 class ExternalDataFetcher:
     """Leitura read-only do MySQL externo usando SQLAlchemy e pandas."""
 
@@ -148,6 +152,87 @@ class ExternalDataFetcher:
             mensal.index = mensal.index + pd.Timedelta(days=offset_days)
 
         return mensal
+
+    def fetch_history_daily_report(
+        self,
+        unidade_id: int,
+        data_inicio,
+        data_fim,
+        dias_historico: int = 45,
+    ) -> pd.DataFrame:
+        """Busca dados diarios da unidade incluindo contexto anterior ao periodo solicitado."""
+        inicio_busca = pd.Timestamp(data_inicio) - pd.Timedelta(days=dias_historico)
+        fim_exclusivo = pd.Timestamp(data_fim) + pd.Timedelta(days=1)
+
+        query = text(
+            """
+            SELECT data AS Data, valor_entrada AS Consumo
+            FROM RelatorioDiarioUnidade
+            WHERE id_unidade = :unidade_id
+              AND data >= :inicio
+              AND data < :fim
+            ORDER BY data ASC
+            """
+        )
+        params = {
+            "unidade_id": unidade_id,
+            "inicio": inicio_busca.to_pydatetime(),
+            "fim": fim_exclusivo.to_pydatetime(),
+        }
+        return self._load_frame(query, params)
+
+    def fetch_dispositivo_dia_fechamento(self, dispositivo_id: str) -> int:
+        """Busca o dia de fechamento/inicio do ciclo para o relatorio historico."""
+        query = text(
+            """
+            SELECT dia_fechamento_fatura
+            FROM Dispositivo
+            WHERE id = :dispositivo_id
+            """
+        )
+        try:
+            with self._engine.connect() as conn:
+                result = conn.execute(query, {"dispositivo_id": dispositivo_id}).fetchone()
+        except SQLAlchemyError as exc:
+            logger.exception("Erro ao buscar dispositivo %s: %s", dispositivo_id, exc)
+            raise RuntimeError("Erro ao consultar banco externo") from exc
+
+        if result is None:
+            raise ExternalDeviceNotFoundError("Dispositivo nao encontrado")
+
+        if result[0] is None:
+            return 1
+
+        dia_fechamento = int(result[0])
+        if dia_fechamento < 1:
+            return 1
+        return min(dia_fechamento, 31)
+
+    def fetch_history_monthly_report(
+        self,
+        unidade_id: int,
+        inicio,
+        fim,
+        dia_fechamento_fatura: int,
+    ) -> pd.DataFrame:
+        """Busca dados diarios e agrega por ciclos mensais do relatorio historico."""
+        query = text(
+            """
+            SELECT data AS Data, valor_entrada AS Consumo
+            FROM RelatorioDiarioUnidade
+            WHERE id_unidade = :unidade_id
+              AND data >= :inicio
+              AND data < :fim
+            ORDER BY data ASC
+            """
+        )
+        params = {
+            "unidade_id": unidade_id,
+            "inicio": pd.Timestamp(inicio).to_pydatetime(),
+            "fim": pd.Timestamp(fim).to_pydatetime(),
+        }
+        daily_frame = self._load_frame(query, params)
+        return self._aggregate_monthly(daily_frame, dia_fechamento_fatura)
 
 
 def dataframe_para_historico(df: pd.DataFrame) -> dict[str, float]:

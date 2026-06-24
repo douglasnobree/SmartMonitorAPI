@@ -35,6 +35,13 @@
 - Possiveis efeitos colaterais: volume de resposta; consumo alterado por outlier. [Inferencia]
 - Testes que deveriam existir: tamanho maximo de retorno, campos esperados, payload vazio/JSON invalido. [Inferencia]
 
+## /v2/classification/history
+- Arquivos afetados: [projectSM/urls.py](projectSM/urls.py), [appSM/v2_views.py](appSM/v2_views.py), [appSM/serializers.py](appSM/serializers.py), [appSM/db_fetcher.py](appSM/db_fetcher.py), [appSM/services/classification_history_service.py](appSM/services/classification_history_service.py)
+- Servicos chamados: ClassificationHistoryService -> ExternalDataFetcher -> AnaliseEstatisticaService.processarDados. [Fonte: codigo]
+- Regras impactadas: consulta RelatorioDiarioUnidade, contexto historico anterior, periodos mensais por dia de fechamento, resposta filtrada ao periodo solicitado. [Fonte: codigo]
+- Possiveis efeitos colaterais: sensibilidade a disponibilidade/schema do banco externo; custo cresce com numero de linhas classificadas porque cada linha reutiliza o pipeline como ultimo ponto. [Inferencia]
+- Testes que deveriam existir: modo daily, modo monthly, periodo invalido, dispositivo inexistente, ausencia total de dados, autenticacao obrigatoria. [Inferencia]
+
 ## /classify/ph
 - Arquivos afetados: [projectSM/urls.py](projectSM/urls.py), [appSM/views.py](appSM/views.py), [ml_pipeline/senseflowQ/ph_classification/ph_classification_service.py](ml_pipeline/senseflowQ/ph_classification/ph_classification_service.py)
 - Servicos chamados: PHClassificationService.classify -> joblib.load. [Fonte: codigo]

@@ -28,3 +28,30 @@ class V2MonthlySerializer(serializers.Serializer):
     def validate(self, attrs):
         # Validações básicas adicionais podem ser inseridas aqui se necessário
         return attrs
+
+
+class V2ClassificationHistorySerializer(serializers.Serializer):
+    """Payload para o relatorio historico de classificacao."""
+
+    type = serializers.ChoiceField(choices=("daily", "monthly"))
+    unidade_id = serializers.IntegerField(min_value=1)
+    data_inicio = serializers.DateField(required=False)
+    data_fim = serializers.DateField(required=False)
+    ano = serializers.IntegerField(min_value=1900, max_value=3000, required=False)
+    dispositivo_id = serializers.CharField(max_length=50, required=False)
+
+    def validate(self, attrs):
+        tipo = attrs.get("type")
+
+        if tipo == "daily":
+            if "data_inicio" not in attrs or "data_fim" not in attrs:
+                raise serializers.ValidationError(
+                    "data_inicio e data_fim sao obrigatorios para type=daily."
+                )
+            if attrs["data_inicio"] > attrs["data_fim"]:
+                raise serializers.ValidationError("data_inicio deve ser menor ou igual a data_fim.")
+
+        if tipo == "monthly" and "ano" not in attrs:
+            raise serializers.ValidationError("ano e obrigatorio para type=monthly.")
+
+        return attrs

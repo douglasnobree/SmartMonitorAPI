@@ -24,6 +24,7 @@ Disponibilizar servicos de predicao de consumo, classificacao estatistica e clas
 - Dados das bandas: cliente envia historico -> API calcula bandas -> retorna lista de registros com bandas. [Fonte: README][Fonte: codigo]
 - Classificacao de pH: cliente envia client_id e ph_value -> API carrega modelo do cliente do disco -> retorna classe e confianca (se disponivel). [Fonte: README][Fonte: codigo]
 - Versao v2: cliente envia sensor_id ou unidade_id/dispositivo_id -> API consulta banco externo read-only -> retorna os mesmos resultados de predicao/analise. [Fonte: codigo]
+- Relatorio historico v2: cliente envia unidade, janela diaria ou ano mensal -> API consulta RelatorioDiarioUnidade com contexto anterior -> retorna uma classificacao por linha solicitada, sem expor o historico adicional. [Fonte: codigo]
 - O fluxo e o contrato de pH sao candidatos a evolucao futura sem garantia de compatibilidade estrita. [Fonte: usuario]
 
 ## Regras de negocio
@@ -54,6 +55,7 @@ Disponibilizar servicos de predicao de consumo, classificacao estatistica e clas
 - RF-006: Retornar dados completos das bandas de Bollinger. [Fonte: codigo]
 - RF-007: Classificar pH por client_id usando modelo local. [Fonte: codigo]
 - RF-008: Fornecer endpoint para obtencao de token JWT. [Fonte: codigo]
+- RF-009: Fornecer classificacao historica autenticada em /v2/classification/history para relatorios diarios e mensais. [Fonte: codigo]
 
 ## Requisitos nao funcionais
 - RNF-001: Operar em Python 3.11 com Django/DRF. [Fonte: README]
