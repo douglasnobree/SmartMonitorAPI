@@ -43,7 +43,7 @@ class ClassificationHistoryService:
         )
         target_frame = frame.loc[
             (frame.index >= pd.Timestamp(data_inicio))
-            & (frame.index <= pd.Timestamp(data_fim))
+            & (frame.index <= pd.Timestamp(data_fim) + pd.Timedelta(days=1))
         ]
         if target_frame.empty:
             raise ExternalDataNotFoundError("Nenhum registro encontrado no periodo solicitado")
