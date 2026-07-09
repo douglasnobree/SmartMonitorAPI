@@ -75,7 +75,7 @@ Disponibilizar servicos de predicao de consumo, classificacao estatistica e clas
 - Integracao v2 depende de banco externo de terceiros e pode sofrer mudancas fora do controle da API. [Fonte: usuario]
 
 ## Lacunas identificadas
-- [GAP] Sem especificacao formal OpenAPI exportada em arquivo. [Fonte: codigo]
+- [GAP] Sem especificacao formal OpenAPI exportada em arquivo. [Fonte: codigo] OBS: A API disponibiliza documentação Swagger/OpenAPI gerada dinamicamente via drf_yasg. Não foi identificado um arquivo OpenAPI estático (YAML/JSON) versionado no repositório.
 - [GAP] Sem definicao explicita de regras de validacao de formato de data no endpoint (existe serializer nao usado). [Fonte: codigo]
 - [GAP] Nao ha refresh token exposto; a rota permanece comentada no codigo. [Fonte: codigo]
 - [GAP] A versao v2 depende de banco externo somente leitura e nao aparece no README original. [Fonte: codigo]
