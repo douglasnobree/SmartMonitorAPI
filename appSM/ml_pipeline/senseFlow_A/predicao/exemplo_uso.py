@@ -7,9 +7,9 @@ Este arquivo demonstra como usar o serviço de predição com:
 3. Mock para testes unitários
 """
 
-from predicao_service import PredicaoService
+from appSM.ml_pipeline.senseFlow_A.predicao.predicao_service import PredicaoService
 from ..modelos.regressaoLinear import LinearRegressionAcumulado
-from ml_pipeline.modelos.base_modelo import ModeloPredicao
+from appSM.ml_pipeline.modelos.base_modelo import ModeloPredicao
 import pandas as pd
 
 

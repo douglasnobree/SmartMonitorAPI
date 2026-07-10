@@ -9,7 +9,7 @@ import pandas as pd
 import logging
 from typing import Dict, Any, Optional
 
-from ml_pipeline.Tratamento import Tratamento
+from appSM.ml_pipeline.Tratamento import Tratamento
 
 # Configure logger
 logger = logging.getLogger(__name__)

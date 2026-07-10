@@ -10,13 +10,13 @@ from rest_framework.permissions import IsAuthenticated
 from django.http import JsonResponse
 
 # Serviço predição
-from ml_pipeline.senseFlow_A.predicao.predicao_service import PredicaoService
+from appSM.ml_pipeline.senseFlow_A.predicao.predicao_service import PredicaoService
 
 # Serviço classificação pH
-from ml_pipeline.senseflowQ.ph_classification import PHClassificationService
+from appSM.ml_pipeline.senseflowQ.ph_classification import PHClassificationService
 
 # Serviço análise estatística
-from ml_pipeline.senseFlow_A.classificacao.analise_estatistica_service import (
+from appSM.ml_pipeline.senseFlow_A.classificacao.analise_estatistica_service import (
     AnaliseEstatisticaService
 )
 # Configure logger

@@ -10,16 +10,16 @@ from rest_framework.exceptions import ParseError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
 
-from appSM.db_fetcher import (
+from fetchers.db_fetcher import (
     ExternalDataFetcher,
     ExternalDataNotFoundError,
     ExternalDeviceNotFoundError,
     dataframe_para_historico,
 )
 from appSM.serializers import V2ClassificationHistorySerializer, V2DailySerializer, V2MonthlySerializer
-from appSM.services.classification_history_service import ClassificationHistoryService
-from ml_pipeline.senseFlow_A.classificacao.analise_estatistica_service import AnaliseEstatisticaService
-from ml_pipeline.senseFlow_A.predicao.predicao_service import PredicaoService
+from appSM.ml_pipeline.senseFlow_A.classificacao.classification_history_service import ClassificationHistoryService
+from appSM.ml_pipeline.senseFlow_A.classificacao.analise_estatistica_service import AnaliseEstatisticaService
+from appSM.ml_pipeline.senseFlow_A.predicao.predicao_service import PredicaoService
 
 logger = logging.getLogger(__name__)
 

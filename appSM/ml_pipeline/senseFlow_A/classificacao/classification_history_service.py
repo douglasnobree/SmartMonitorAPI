@@ -5,12 +5,12 @@ from typing import Optional
 
 import pandas as pd
 
-from appSM.db_fetcher import (
+from fetchers.db_fetcher import (
     ExternalDataFetcher,
     ExternalDataNotFoundError,
     dataframe_para_historico,
 )
-from ml_pipeline.senseFlow_A.classificacao.analise_estatistica_service import (
+from appSM.ml_pipeline.senseFlow_A.classificacao.analise_estatistica_service import (
     AnaliseEstatisticaService,
 )
 

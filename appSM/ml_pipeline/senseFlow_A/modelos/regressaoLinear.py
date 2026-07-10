@@ -8,7 +8,7 @@ Encapsula o pré-processamento necessário para este modelo específico.
 import numpy as np
 import pandas as pd
 from sklearn.linear_model import LinearRegression
-from ml_pipeline.modelos.base_modelo import ModeloPredicao
+from appSM.ml_pipeline.modelos.base_modelo import ModeloPredicao
 
 
 class LinearRegressionAcumulado(ModeloPredicao):

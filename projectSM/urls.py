@@ -9,7 +9,7 @@ from rest_framework_simplejwt.views import (
 )
 
 # Import views explicitly
-from appSM.views import (
+from appSM.views_deprecated import (
     PredicaoMensal,
     PredicaoDiaria,
     analise_estatistica_diaria,

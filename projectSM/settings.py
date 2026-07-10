@@ -23,7 +23,7 @@ LOGS_DIR = BASE_DIR / 'logs'
 LOGS_DIR.mkdir(exist_ok=True)
 
 # Configuração de modelos ML
-MODELS_DIR = BASE_DIR / 'ml_pipeline' / 'models'
+MODELS_DIR = BASE_DIR / 'appSM' / 'ml_pipeline' / 'models'
 MODELS_DIR.mkdir(exist_ok=True, parents=True)
 
 

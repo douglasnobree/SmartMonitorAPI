@@ -16,8 +16,8 @@ import numpy as np
 import logging
 from typing import Dict, Optional
 
-from ml_pipeline.Tratamento import Tratamento
-from ml_pipeline.modelos.base_modelo import ModeloPredicao
+from appSM.ml_pipeline.Tratamento import Tratamento
+from appSM.ml_pipeline.modelos.base_modelo import ModeloPredicao
 from ..modelos.regressaoLinear import LinearRegressionAcumulado
 
 # Configure logger

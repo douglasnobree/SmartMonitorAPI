@@ -81,7 +81,7 @@ class ExternalDataFetcher:
         dia_inicio_ciclo = 1
         if dispositivo_id is not None:
             dia_inicio_ciclo = self._fetch_dia_inicio_ciclo(dispositivo_id)
-
+            
         hoje = pd.Timestamp.now().normalize()
         
         # Identifica o início do ciclo de faturamento atual

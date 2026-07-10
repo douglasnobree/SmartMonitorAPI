@@ -11,9 +11,9 @@ from rest_framework import serializers
 from rest_framework.test import APIClient, APITestCase
 
 from appSM.serializers import MySerializer
-from appSM.services.classification_history_service import ClassificationHistoryService
-from ml_pipeline.senseFlow_A.predicao.predicao_service import PredicaoService
-from ml_pipeline.senseFlow_A.classificacao.analise_estatistica_service import (
+from appSM.ml_pipeline.senseFlow_A.classificacao.classification_history_service import ClassificationHistoryService
+from appSM.ml_pipeline.senseFlow_A.predicao.predicao_service import PredicaoService
+from appSM.ml_pipeline.senseFlow_A.classificacao.analise_estatistica_service import (
     AnaliseEstatisticaService,
 )
 
