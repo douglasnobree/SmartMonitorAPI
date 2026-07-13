@@ -264,23 +264,26 @@ Essa integração é pensada para estabilidade de longo prazo, mas depende de um
 ```
 SmartMonitorAPI/
 ├── appSM/                      # App Django principal
-│   ├── views.py               # Views da API
+│   ├── views_deprecated.py    # Views da API (legado)
 │   ├── serializers.py         # Serializers DRF
+│   ├── ml_pipeline/           # Pipeline de Machine Learning
+│   │   ├── Tratamento.py      # Interface abstrata
+│   │   ├── senseFlow_A/       # Análise de consumo de água
+│   │   │   ├── classificacao/ # Serviços de classificação
+│   │   │   ├── modelos/       # Modelos ML
+│   │   │   └── predicao/      # Serviços de predição
+│   │   ├── senseflowQ/        # Análise de qualidade de água
+│   │   │   └── ph_classification/ # Classificação de pH
+│   │   └── models/            # Modelos ML armazenados
+│   │       └── ph_classification/ # Modelos por cliente
+│   └── ...
+├── fetchers/                   # Módulos de busca de dados
+│   ├── db_fetcher.py          # Busca de dados em banco externo
 │   └── ...
 ├── projectSM/                  # Configurações Django
 │   ├── settings.py            # Configurações
 │   ├── urls.py                # Rotas
 │   └── authentication.py      # JWT customizado
-├── ml_pipeline/               # Pipeline de Machine Learning
-│   ├── Tratamento.py          # Interface abstrata
-│   ├── senseFlow_A/           # Análise de consumo de água
-│   │   ├── classificacao/     # Serviços de classificação
-│   │   ├── modelos/           # Modelos ML
-│   │   └── predicao/          # Serviços de predição
-│   ├── senseflowQ/            # Análise de qualidade de água
-│   │   └── ph_classification/ # Classificação de pH
-│   └── models/                # Modelos ML armazenados
-│       └── ph_classification/ # Modelos por cliente
 ├── static/                    # Arquivos estáticos
 ├── staticfiles/               # Arquivos coletados
 ├── requirements.txt           # Dependências Python

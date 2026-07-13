@@ -18,11 +18,11 @@ API REST Django para analise de consumo de agua e classificacao de pH. Atua como
 4. Resposta JSON retornada com resultado ou erro. [Fonte: codigo]
 
 ## Componentes
-- appSM.views: endpoints de predicao, analise estatistica e classificacao de pH. [Fonte: codigo]
+- appSM.views_deprecated: endpoints de predicao, analise estatistica e classificacao de pH. [Fonte: codigo]
 - appSM.v2_views: endpoints v2 com consulta a banco externo read-only. [Fonte: codigo]
-- ml_pipeline.senseFlow_A: servicos de predicao e analise estatistica. [Fonte: codigo]
-- ml_pipeline.senseflowQ: servico de classificacao de pH. [Fonte: codigo]
-- appSM.db_fetcher: acesso ao banco externo e agregacao do historico. [Fonte: codigo]
+- appSM.ml_pipeline.senseFlow_A: servicos de predicao e analise estatistica. [Fonte: codigo]
+- appSM.ml_pipeline.senseflowQ: servico de classificacao de pH. [Fonte: codigo]
+- fetchers.db_fetcher: acesso ao banco externo e agregacao do historico. [Fonte: codigo]
 - projectSM.authentication: autenticacao JWT customizada (sem prefixo). [Fonte: codigo]
 - projectSM.settings: configuracao de logs, staticfiles e DB. [Fonte: codigo]
 
@@ -75,7 +75,7 @@ sequenceDiagram
 ## Modelo de dados
 - Nao ha modelos Django definidos em appSM (sem tabelas de dominio). [Fonte: codigo]
 - DB SQLite usada para auth/admin e tabelas internas do Django. [Fonte: codigo]
-- Modelos de pH ficam em disco em /ml_pipeline/models/ph_classification/client_<id>/. [Fonte: codigo]
+- Modelos de pH ficam em disco em /appSM/ml_pipeline/models/ph_classification/client_<id>/. [Fonte: codigo]
 
 ## Observabilidade
 - Logs em console e arquivos rotativos (smartmonitor.log, errors.log). [Fonte: codigo]
