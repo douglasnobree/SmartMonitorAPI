@@ -7,15 +7,15 @@ análise estatística utilizando o método de Bandas de Bollinger.
 
 import pandas as pd
 import logging
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Union
 
-from appSM.ml_pipeline.Tratamento import Tratamento
+from appSM.domain.tratamento import normalizar_historico
 
 # Configure logger
 logger = logging.getLogger(__name__)
 
 
-class AnaliseEstatisticaService(Tratamento):
+class AnaliseEstatisticaService:
     """
     Serviço unificado para classificação de consumo usando Bandas de Bollinger.
     
@@ -52,14 +52,15 @@ class AnaliseEstatisticaService(Tratamento):
         """
         self.janela = janela if janela is not None else self.JANELA_DIARIA
         logger.info(f"AnaliseEstatisticaService inicializado com janela={self.janela}")
-    
-    def processarDados(self, dados_request: Dict[str, float]) -> Dict[str, Any]:
+    def _normalizar_historico(self, dados_request, frequencia: str) -> pd.DataFrame:
+        return normalizar_historico(dados_request, frequencia=frequencia)
+
+    def processarDados(self, dados_request: Union[pd.DataFrame, Dict[str, float], Any]) -> Dict[str, Any]:
         """
         Processa dados de consumo e retorna a classificação do último registro.
         
         Args:
-            dados_request (dict): Dicionário com datas e consumos.
-                                 Formato: {'DD/MM/YYYY': valor_float}
+            dados_request (dict|DataFrame): Dados com datas e consumos.
         
         Returns:
             dict: Dicionário contendo:
@@ -72,7 +73,7 @@ class AnaliseEstatisticaService(Tratamento):
             Exception: Se houver erro no processamento dos dados
         """
         try:
-            if not dados_request:
+            if dados_request is None or (isinstance(dados_request, (pd.DataFrame, pd.Series)) and dados_request.empty) or (not isinstance(dados_request, (pd.DataFrame, pd.Series)) and not dados_request):
                 raise ValueError("dados_request não pode estar vazio")
             
             df = self._normalizar_historico(
@@ -134,13 +135,12 @@ class AnaliseEstatisticaService(Tratamento):
             logger.exception(f"Erro em AnaliseEstatisticaService: {str(e)}")
             raise Exception(str(e))
     
-    def obterDadosCompletos(self, dados_request: Dict[str, float]) -> list:
+    def obterDadosCompletos(self, dados_request: Union[pd.DataFrame, Dict[str, float], Any]) -> list:
         """
         Processa dados de consumo e retorna todos os registros com bandas calculadas.
         
         Args:
-            dados_request (dict): Dicionário com datas e consumos.
-                                 Formato: {'DD/MM/YYYY': valor_float}
+            dados_request (dict|DataFrame): Dados com datas e consumos.
         
         Returns:
             list: Lista de dicionários contendo todos os registros com bandas calculadas
@@ -150,7 +150,7 @@ class AnaliseEstatisticaService(Tratamento):
             Exception: Se houver erro no processamento dos dados
         """
         try:
-            if not dados_request:
+            if dados_request is None or (isinstance(dados_request, (pd.DataFrame, pd.Series)) and dados_request.empty) or (not isinstance(dados_request, (pd.DataFrame, pd.Series)) and not dados_request):
                 raise ValueError("dados_request não pode estar vazio")
             
             df = self._normalizar_historico(

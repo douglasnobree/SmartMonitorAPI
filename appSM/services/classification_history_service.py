@@ -5,12 +5,11 @@ from typing import Optional
 
 import pandas as pd
 
-from fetchers.db_fetcher import (
+from appSM.infrastructure.db_fetcher import (
     ExternalDataFetcher,
     ExternalDataNotFoundError,
-    dataframe_para_historico,
 )
-from appSM.ml_pipeline.senseFlow_A.classificacao.analise_estatistica_service import (
+from appSM.services.analise_estatistica_service import (
     AnaliseEstatisticaService,
 )
 
@@ -98,17 +97,12 @@ class ClassificationHistoryService:
         )
 
     def _classificar_linhas(self, frame, target_frame, janela: int, periodo_formatter) -> list[dict]:
-        historico_completo = dataframe_para_historico(frame)
         service = self.analysis_service_cls(janela=janela)
         resultados = []
 
         for data, row in target_frame.sort_index().iterrows():
             data_formatada = self._formatar_data(data)
-            historico_ate_linha = {
-                chave: valor
-                for chave, valor in historico_completo.items()
-                if pd.to_datetime(chave, format="%d/%m/%Y") <= pd.Timestamp(data)
-            }
+            historico_ate_linha = frame.loc[frame.index <= pd.Timestamp(data)]
             classificacao = service.processarDados(historico_ate_linha)
             resultados.append(
                 {

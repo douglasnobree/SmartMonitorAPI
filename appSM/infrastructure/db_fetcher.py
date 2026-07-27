@@ -18,14 +18,29 @@ class ExternalDeviceNotFoundError(LookupError):
     """Lançada quando o dispositivo informado não existe no banco externo."""
 
 
+_default_engine = None
+
+
+def _get_default_engine():
+    global _default_engine
+    if _default_engine is None:
+        url = config("EXTERNAL_MYSQL_URL", default=None) or config("EXTERNAL_DB_URL", default=None)
+        if not url:
+            raise ValueError("EXTERNAL_MYSQL_URL nao configurada")
+        _default_engine = create_engine(url, pool_pre_ping=True, future=True)
+    return _default_engine
+
+
 class ExternalDataFetcher:
     """Leitura read-only do MySQL externo usando SQLAlchemy e pandas."""
 
-    def __init__(self, database_url: Optional[str] = None):
-        self.database_url = database_url or config("EXTERNAL_MYSQL_URL") or config("EXTERNAL_DB_URL")
-        if not self.database_url:
-            raise ValueError("EXTERNAL_MYSQL_URL nao configurada")
-        self._engine = create_engine(self.database_url, pool_pre_ping=True, future=True)
+    def __init__(self, database_url: Optional[str] = None, engine=None):
+        if engine is not None:
+            self._engine = engine
+        elif database_url is not None:
+            self._engine = create_engine(database_url, pool_pre_ping=True, future=True)
+        else:
+            self._engine = _get_default_engine()
 
     def fetch_daily_history(self, sensor_id: str) -> pd.DataFrame:
         """Busca o histórico diário (45 dias incluindo hoje) agregado por sensor na tabela SensorData."""

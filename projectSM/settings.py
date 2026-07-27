@@ -23,7 +23,7 @@ LOGS_DIR = BASE_DIR / 'logs'
 LOGS_DIR.mkdir(exist_ok=True)
 
 # Configuração de modelos ML
-MODELS_DIR = BASE_DIR / 'appSM' / 'ml_pipeline' / 'models'
+MODELS_DIR = BASE_DIR / 'appSM' / 'domain' / 'models'
 MODELS_DIR.mkdir(exist_ok=True, parents=True)
 
 
@@ -242,7 +242,7 @@ LOGGING = {
             'level': 'DEBUG',
             'propagate': False,
         },
-        'ml_pipeline': {
+        'appSM.services': {
             'handlers': ['console', 'file', 'error_file'],
             'level': 'DEBUG',
             'propagate': False,

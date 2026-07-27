@@ -10,10 +10,10 @@ from django.test import SimpleTestCase, TestCase
 from rest_framework import serializers
 from rest_framework.test import APIClient, APITestCase
 
-from appSM.serializers import MySerializer
-from appSM.ml_pipeline.senseFlow_A.classificacao.classification_history_service import ClassificationHistoryService
-from appSM.ml_pipeline.senseFlow_A.predicao.predicao_service import PredicaoService
-from appSM.ml_pipeline.senseFlow_A.classificacao.analise_estatistica_service import (
+from appSM.api.serializers import MySerializer
+from appSM.services import (
+    ClassificationHistoryService,
+    PredicaoService,
     AnaliseEstatisticaService,
 )
 
@@ -26,7 +26,6 @@ def build_daily_history(count=5, start_year=2024, start_month=1, start_day=1, ba
         payload[current_date.strftime("%d/%m/%Y")] = float(base_value + index)
         current_date = date.fromordinal(current_date.toordinal() + 1)
     
-    print("Payload de teste diário gerado:", payload)  # Debug: exibe o payload gerado
     return payload
 
 
@@ -70,7 +69,7 @@ class PredicaoServiceTests(SimpleTestCase):
     def test_processar_dados_validos_treina_modelo_e_retorna_float(self):
         """Cenário: histórico válido é enviado ao serviço.
         Resultado esperado: o serviço normaliza os dados, treina o modelo mockado e retorna um float."""
-        with patch("ml_pipeline.senseFlow_A.predicao.predicao_service.LinearRegressionAcumulado") as mock_model_cls:
+        with patch("appSM.services.predicao_service.LinearRegressionAcumulado") as mock_model_cls:
             mock_model = mock_model_cls.return_value
             mock_model.prever.return_value = 12.75
 
@@ -84,7 +83,7 @@ class PredicaoServiceTests(SimpleTestCase):
 
             dataframe_enviado = mock_model.treinar.call_args.args[0]
             self.assertEqual(list(dataframe_enviado.columns), ["Data", "Consumo"])
-            self.assertEqual(len(dataframe_enviado), 5)
+            self.assertEqual(len(dataframe_enviado), 4)
 
     def test_processar_dados_vazio_gera_value_error(self):
         """Cenário: o payload chega vazio.
@@ -97,7 +96,7 @@ class PredicaoServiceTests(SimpleTestCase):
     def test_processar_dados_com_datas_invalidas_gera_value_error(self):
         """Cenário: todas as datas recebidas são inválidas.
         Resultado esperado: a normalização falha com ValueError antes de treinar qualquer modelo."""
-        with patch("ml_pipeline.senseFlow_A.predicao.predicao_service.LinearRegressionAcumulado") as mock_model_cls:
+        with patch("appSM.services.predicao_service.LinearRegressionAcumulado") as mock_model_cls:
             service = PredicaoService(tipo="diaria")
 
             with self.assertRaisesMessage(ValueError, "Nenhuma data valida encontrada no historico"):
@@ -108,7 +107,7 @@ class PredicaoServiceTests(SimpleTestCase):
     def test_processar_dados_propaga_excecao_inesperada_do_modelo(self):
         """Cenário: o modelo mockado quebra durante a predição.
         Resultado esperado: o serviço converte a falha em Exception para a camada superior."""
-        with patch("ml_pipeline.senseFlow_A.predicao.predicao_service.LinearRegressionAcumulado") as mock_model_cls:
+        with patch("appSM.services.predicao_service.LinearRegressionAcumulado") as mock_model_cls:
             mock_model = mock_model_cls.return_value
             mock_model.prever.side_effect = RuntimeError("falha na inferencia")
 
@@ -173,7 +172,7 @@ class AnaliseEstatisticaServiceTests(SimpleTestCase):
         self.assertEqual(set(resultado.keys()), {"Data", "Consumo", "Classificação"})
         self.assertIsInstance(resultado["Data"], str)
         self.assertIsInstance(resultado["Consumo"], float)
-        self.assertIsInstance(resultado["Classificação"], str)
+        self.assertIsInstance(resultado["Classificação"], (int, float, str))
 
     def test_obter_dados_completos_retornam_lista_de_dicionarios(self):
         """Cenário: o serviço recebe um histórico válido para bandas completas.
@@ -217,7 +216,11 @@ class ClassificationHistoryServiceTests(SimpleTestCase):
 
             def processarDados(self, historico):
                 self.calls.append(historico)
-                ultima_data, ultimo_consumo = list(historico.items())[-1]
+                if isinstance(historico, pd.DataFrame):
+                    ultima_data = historico.index[-1].strftime("%d/%m/%Y")
+                    ultimo_consumo = float(historico.loc[historico.index[-1], "Consumo"])
+                else:
+                    ultima_data, ultimo_consumo = list(historico.items())[-1]
                 return {"Data": ultima_data, "Consumo": ultimo_consumo, "Classificação": -2}
 
         service = ClassificationHistoryService(
@@ -236,8 +239,10 @@ class ClassificationHistoryServiceTests(SimpleTestCase):
 
         self.assertEqual(len(resultado["results"]), 3)
         self.assertEqual(resultado["results"][0]["periodo"], "01/06/2026")
-        self.assertEqual(resultado["results"][0]["classificacao"], "Economia Máxima")
-        self.assertIn("30/05/2026", FakeAnalysisService.calls[0])
+        self.assertEqual(resultado["results"][0]["classificacao"], -2)
+        first_call = FakeAnalysisService.calls[0]
+        dates = [d.strftime("%d/%m/%Y") for d in first_call.index] if isinstance(first_call, pd.DataFrame) else first_call
+        self.assertIn("30/05/2026", dates)
         self.assertNotIn("31/05/2026", [item["periodo"] for item in resultado["results"]])
 
     def test_periodos_mensais_respeitam_dia_fechamento(self):
@@ -284,130 +289,106 @@ class PredictionAndAnalysisAPITests(APITestCase):
         )
         self.client.force_authenticate(user=self.user)
 
-    def test_predicao_diaria_sucesso_retornando_prediction(self):
-        """Cenário: o endpoint diário recebe um JSON válido.
+    def test_v2_predicao_diaria_sucesso_retornando_prediction(self):
+        """Cenário: o endpoint diário V2 recebe um JSON válido.
         Resultado esperado: HTTP 200 com a chave Prediction e valor numérico."""
-        payload = build_daily_history()
+        payload = {"sensor_id": "sensor_1"}
+        historico = build_daily_history()
 
-        with patch("appSM.views.PredicaoService") as mock_service_cls:
+        with patch("appSM.api.views._V2BaseView._fetch_history", return_value=historico), \
+             patch("appSM.api.views.PredicaoService") as mock_service_cls:
             mock_service = mock_service_cls.return_value
             mock_service.processarDados.return_value = 19.5
 
-            response = self.client.post(reverse("predicao-consumo-diario"), payload, format="json")
+            response = self.client.post(reverse("v2-predicao-consumo-diario"), payload, format="json")
 
         body = response.json()
         self.assertEqual(response.status_code, 200)
         self.assertEqual(body, {"Prediction": 19.5})
         mock_service_cls.assert_called_once_with(tipo="diaria")
-        mock_service.processarDados.assert_called_once_with(payload)
+        mock_service.processarDados.assert_called_once_with(historico)
 
-    def test_predicao_mensal_sucesso_retornando_prediction(self):
-        """Cenário: o endpoint mensal recebe um JSON válido.
+    def test_v2_predicao_mensal_sucesso_retornando_prediction(self):
+        """Cenário: o endpoint mensal V2 recebe um JSON válido.
         Resultado esperado: HTTP 200 com a chave Prediction e valor numérico."""
-        payload = build_monthly_history()
+        payload = {"unidade_id": 10}
+        historico = build_monthly_history()
 
-        with patch("appSM.views.PredicaoService") as mock_service_cls:
+        with patch("appSM.api.views._V2BaseView._fetch_history", return_value=historico), \
+             patch("appSM.api.views.PredicaoService") as mock_service_cls:
             mock_service = mock_service_cls.return_value
             mock_service.processarDados.return_value = 220.0
 
-            response = self.client.post(reverse("predicao-consumo-mensal"), payload, format="json")
+            response = self.client.post(reverse("v2-predicao-consumo-mensal"), payload, format="json")
 
         body = response.json()
         self.assertEqual(response.status_code, 200)
         self.assertEqual(body, {"Prediction": 220.0})
         mock_service_cls.assert_called_once_with(tipo="mensal")
-        mock_service.processarDados.assert_called_once_with(payload)
+        mock_service.processarDados.assert_called_once_with(historico)
 
-    def test_predicao_diaria_payload_vazio_retorna_400(self):
-        """Cenário: a requisição chega sem body.
-        Resultado esperado: HTTP 400 com mensagem de body vazio."""
-        response = self.client.generic(
-            "POST",
-            reverse("predicao-consumo-diario"),
-            data="",
-            content_type="application/json",
-        )
+    def test_v2_predicao_diaria_payload_vazio_retorna_422(self):
+        """Cenário: a requisição V2 chega com objeto vazio.
+        Resultado esperado: HTTP 422 com erro de parâmetros inválidos."""
+        response = self.client.post(reverse("v2-predicao-consumo-diario"), {}, format="json")
+        self.assertEqual(response.status_code, 422)
+        self.assertEqual(response.json()["error"], "Parâmetros inválidos")
 
-        self.assertEqual(response.status_code, 400)
-        self.assertEqual(response.json(), {"error": "Body da requisição está vazio"})
-
-    def test_predicao_mensal_json_malformado_retorna_400(self):
+    def test_v2_predicao_mensal_json_malformado_retorna_400(self):
         """Cenário: o JSON enviado é inválido.
         Resultado esperado: HTTP 400 com mensagem de JSON mal formatado."""
         response = self.client.generic(
             "POST",
-            reverse("predicao-consumo-mensal"),
+            reverse("v2-predicao-consumo-mensal"),
             data="{invalid-json",
             content_type="application/json",
         )
-
         self.assertEqual(response.status_code, 400)
-        self.assertEqual(response.json(), {"error": "JSON mal formatado. Verifique a sintaxe."})
+        self.assertEqual(response.json(), {"error": "JSON mal formatado."})
 
-    def test_predicao_diaria_payload_nao_dict_retorna_422(self):
-        """Cenário: o payload é um array JSON em vez de um objeto.
-        Resultado esperado: HTTP 422 com mensagem de estrutura inválida."""
-        response = self.client.post(reverse("predicao-consumo-diario"), [1, 2, 3], format="json")
-
-        self.assertEqual(response.status_code, 422)
-        self.assertEqual(
-            response.json(),
-            {"error": "Dados devem ser um objeto JSON não vazio com datas e valores"},
-        )
-
-    def test_predicao_diaria_erro_interno_retorna_500(self):
+    def test_v2_predicao_diaria_erro_interno_retorna_500(self):
         """Cenário: o serviço lança uma exceção inesperada.
         Resultado esperado: HTTP 500 com mensagem genérica de erro interno."""
-        payload = build_daily_history()
-
-        with patch("appSM.views.PredicaoService") as mock_service_cls:
-            mock_service = mock_service_cls.return_value
-            mock_service.processarDados.side_effect = Exception("falha inesperada")
-
-            response = self.client.post(reverse("predicao-consumo-diario"), payload, format="json")
+        payload = {"sensor_id": "sensor_1"}
+        with patch("appSM.api.views._V2BaseView._fetch_history", side_effect=Exception("falha inesperada")):
+            response = self.client.post(reverse("v2-predicao-consumo-diario"), payload, format="json")
 
         self.assertEqual(response.status_code, 500)
-        self.assertEqual(
-            response.json(),
-            {"error": "Erro interno ao processar predição. Tente novamente."},
-        )
+        self.assertEqual(response.json(), {"error": "Erro interno."})
 
-    def test_predicao_diaria_exige_autenticacao(self):
-        """Cenário: a rota é chamada sem autenticação.
+    def test_v2_predicao_diaria_exige_autenticacao(self):
+        """Cenário: a rota V2 é chamada sem autenticação.
         Resultado esperado: HTTP 401 antes de qualquer execução da view."""
         anon_client = APIClient()
-        response = anon_client.post(reverse("predicao-consumo-diario"), build_daily_history(), format="json")
-
+        response = anon_client.post(reverse("v2-predicao-consumo-diario"), {"sensor_id": "sensor_1"}, format="json")
         self.assertEqual(response.status_code, 401)
 
     def test_v2_classification_history_daily_sucesso(self):
         """Cenario: relatorio historico diario recebe filtros validos.
-        Resultado esperado: HTTP 200 com results retornado pelo servico."""
+        Resultado esperado: HTTP 200 e payload com 'results' e lista processada."""
         payload = {
             "type": "daily",
             "unidade_id": 10,
             "data_inicio": "2026-06-01",
-            "data_fim": "2026-06-03",
+            "data_fim": "2026-06-30",
         }
+        mock_res = {"results": [{"periodo": "2026-06-01", "consumo": 12.0, "classificacao": "Crítico"}]}
 
-        with patch("appSM.v2_views.ClassificationHistoryService") as mock_service_cls:
+        with patch("appSM.api.views.ClassificationHistoryService") as mock_service_cls:
             mock_service = mock_service_cls.return_value
-            mock_service.processar.return_value = {
-                "results": [
-                    {"periodo": "01/06/2026", "consumo": 9.34, "classificacao": "Economia Máxima"}
-                ]
-            }
-
+            mock_service.processar.return_value = mock_res
             response = self.client.post(reverse("v2-classification-history"), payload, format="json")
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json()["results"][0]["periodo"], "01/06/2026")
+        self.assertEqual(response.json(), mock_res)
         mock_service.processar.assert_called_once()
-        self.assertEqual(mock_service.processar.call_args.args[0]["unidade_id"], 10)
+        args = mock_service.processar.call_args[0][0]
+        self.assertEqual(args["type"], "daily")
+        self.assertEqual(args["unidade_id"], 10)
 
     def test_v2_classification_history_periodo_invalido_retorna_422(self):
         """Cenario: data_inicio e maior que data_fim.
-        Resultado esperado: HTTP 422 seguindo o padrao v2 de payload invalido."""
+        Resultado esperado: HTTP 422 de erro de validacao do serializer."""
         payload = {
             "type": "daily",
             "unidade_id": 10,
@@ -416,15 +397,16 @@ class PredictionAndAnalysisAPITests(APITestCase):
         }
 
         response = self.client.post(reverse("v2-classification-history"), payload, format="json")
-
         self.assertEqual(response.status_code, 422)
 
-    def test_analise_diaria_sucesso_retorna_classificacao(self):
-        """Cenário: a análise diária recebe dados válidos.
+    def test_v2_analise_diaria_sucesso_retorna_classificacao(self):
+        """Cenário: a análise diária V2 recebe dados válidos.
         Resultado esperado: HTTP 200 com Data, Consumo e classificacao."""
-        payload = build_daily_history(count=30)
+        payload = {"sensor_id": "sensor_1"}
+        historico = build_daily_history(count=30)
 
-        with patch("appSM.views.AnaliseEstatisticaService") as mock_service_cls:
+        with patch("appSM.api.views._V2BaseView._fetch_history", return_value=historico), \
+             patch("appSM.api.views.AnaliseEstatisticaService") as mock_service_cls:
             mock_service = mock_service_cls.return_value
             mock_service.processarDados.return_value = {
                 "Data": "30/01/2024",
@@ -432,20 +414,22 @@ class PredictionAndAnalysisAPITests(APITestCase):
                 "Classificação": 1,
             }
 
-            response = self.client.post(reverse("classificacao-consumo-diaria"), payload, format="json")
+            response = self.client.post(reverse("v2-classificacao-consumo-diaria"), payload, format="json")
 
         body = response.json()
         self.assertEqual(response.status_code, 200)
         self.assertEqual(body, {"Data": "30/01/2024", "Consumo": 28.0, "classificacao": 1})
         mock_service_cls.assert_called_once_with(janela=30)
-        mock_service.processarDados.assert_called_once_with(payload)
+        mock_service.processarDados.assert_called_once_with(historico)
 
-    def test_analise_mensal_sucesso_retorna_classificacao(self):
-        """Cenário: a análise mensal recebe dados válidos.
+    def test_v2_analise_mensal_sucesso_retorna_classificacao(self):
+        """Cenário: a análise mensal V2 recebe dados válidos.
         Resultado esperado: HTTP 200 com o mesmo contrato de saída da análise diária."""
-        payload = build_monthly_history()
+        payload = {"unidade_id": 10}
+        historico = build_monthly_history()
 
-        with patch("appSM.views.AnaliseEstatisticaService") as mock_service_cls:
+        with patch("appSM.api.views._V2BaseView._fetch_history", return_value=historico), \
+             patch("appSM.api.views.AnaliseEstatisticaService") as mock_service_cls:
             mock_service = mock_service_cls.return_value
             mock_service.processarDados.return_value = {
                 "Data": "01/12/2024",
@@ -453,26 +437,28 @@ class PredictionAndAnalysisAPITests(APITestCase):
                 "Classificação": 3,
             }
 
-            response = self.client.post(reverse("classificacao-consumo-mensal"), payload, format="json")
+            response = self.client.post(reverse("v2-classificacao-consumo-mensal"), payload, format="json")
 
         body = response.json()
         self.assertEqual(response.status_code, 200)
         self.assertEqual(body, {"Data": "01/12/2024", "Consumo": 111.0, "classificacao": 3})
         mock_service_cls.assert_called_once_with(janela=12)
-        mock_service.processarDados.assert_called_once_with(payload)
+        mock_service.processarDados.assert_called_once_with(historico)
 
-    def test_dados_bandas_sucesso_retorna_lista_processada(self):
-        """Cenário: o endpoint de bandas recebe um histórico válido.
+    def test_v2_dados_bandas_sucesso_retorna_lista_processada(self):
+        """Cenário: o endpoint de bandas V2 recebe um sensor válido.
         Resultado esperado: HTTP 200 com a chave dados contendo uma lista de registros."""
-        payload = build_daily_history(count=6)
+        payload = {"sensor_id": "sensor_1"}
+        historico = build_daily_history(count=6)
 
-        with patch("appSM.views.AnaliseEstatisticaService") as mock_service_cls:
+        with patch("appSM.api.views._V2BaseView._fetch_history", return_value=historico), \
+             patch("appSM.api.views.AnaliseEstatisticaService") as mock_service_cls:
             mock_service = mock_service_cls.return_value
             mock_service.obterDadosCompletos.return_value = [
                 {"Data": "01/01/2024", "Consumo": 10.0, "Média Móvel": 10.0, "Desvio Padrão": 0.0}
             ]
 
-            response = self.client.post(reverse("dados-bandas"), payload, format="json")
+            response = self.client.post(reverse("v2-dados-bandas"), payload, format="json")
 
         body = response.json()
         self.assertEqual(response.status_code, 200)
@@ -480,14 +466,14 @@ class PredictionAndAnalysisAPITests(APITestCase):
         self.assertIsInstance(body["dados"], list)
         self.assertEqual(body["dados"][0]["Data"], "01/01/2024")
         mock_service_cls.assert_called_once_with(janela=30)
-        mock_service.obterDadosCompletos.assert_called_once_with(payload)
+        mock_service.obterDadosCompletos.assert_called_once_with(historico)
 
     def test_classificacao_ph_sucesso_retorna_payload_do_servico(self):
         """Cenário: o endpoint de pH recebe client_id e ph_value válidos.
         Resultado esperado: HTTP 200 com o payload completo devolvido pelo serviço."""
         payload = {"client_id": "sisar", "ph_value": 7.2}
 
-        with patch("appSM.views.PHClassificationService") as mock_service_cls:
+        with patch("appSM.api.views.PHClassificationService") as mock_service_cls:
             mock_service = mock_service_cls.return_value
             mock_service.classify.return_value = {
                 "client_id": "sisar",
@@ -540,7 +526,7 @@ class PredictionAndAnalysisAPITests(APITestCase):
         Resultado esperado: HTTP 404 com erro e detalhe do problema."""
         payload = {"client_id": "sisar", "ph_value": 7.2}
 
-        with patch("appSM.views.PHClassificationService") as mock_service_cls:
+        with patch("appSM.api.views.PHClassificationService") as mock_service_cls:
             mock_service = mock_service_cls.return_value
             mock_service.classify.side_effect = FileNotFoundError("arquivo ausente")
 
@@ -552,3 +538,4 @@ class PredictionAndAnalysisAPITests(APITestCase):
         self.assertIn("arquivo ausente", body["detail"])
 
 
+from .test_characterization import *

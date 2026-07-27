@@ -8,10 +8,9 @@ Encapsula o pré-processamento necessário para este modelo específico.
 import numpy as np
 import pandas as pd
 from sklearn.linear_model import LinearRegression
-from appSM.ml_pipeline.modelos.base_modelo import ModeloPredicao
 
 
-class LinearRegressionAcumulado(ModeloPredicao):
+class LinearRegressionAcumulado:
     """
     Modelo de Regressão Linear que utiliza valores acumulados.
     

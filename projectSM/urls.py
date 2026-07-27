@@ -8,22 +8,14 @@ from rest_framework_simplejwt.views import (
     TokenRefreshView,
 )
 
-# Import views explicitly
-from appSM.views_deprecated import (
-    PredicaoMensal,
-    PredicaoDiaria,
-    analise_estatistica_diaria,
-    analise_estatistica_mensal,
-    DadosBandas,
-    ClassificacaoPH,
-)
-from appSM.v2_views import (
+from appSM.api.views import (
     V2PredicaoDiaria,
     V2PredicaoMensal,
     V2AnaliseEstatisticaDiaria,
     V2AnaliseEstatisticaMensal,
     V2ClassificationHistory,
     V2DadosBandas,
+    ClassificacaoPH,
 )
 
 
@@ -52,15 +44,6 @@ urlpatterns = [
     # Root URL - Redirect to Swagger documentation
     path('', schema_view.with_ui('swagger', cache_timeout=0), name='api-root'),
     
-    # Rota classificação de consumo atual
-    path('statistic/daily', analise_estatistica_diaria.as_view(), name='classificacao-consumo-diaria'),
-    path('statistic/monthly', analise_estatistica_mensal.as_view(), name='classificacao-consumo-mensal'),
-    path('statistic/data', DadosBandas.as_view(), name='dados-bandas'),
-    
-    # Rota de predição de consumo
-    path('prediction/monthly', PredicaoMensal.as_view(), name='predicao-consumo-mensal'),
-    path('prediction/daily', PredicaoDiaria.as_view(), name='predicao-consumo-diario'),
-
     # Rotas v2
     path('v2/prediction/daily', V2PredicaoDiaria.as_view(), name='v2-predicao-consumo-diario'),
     path('v2/prediction/monthly', V2PredicaoMensal.as_view(), name='v2-predicao-consumo-mensal'),

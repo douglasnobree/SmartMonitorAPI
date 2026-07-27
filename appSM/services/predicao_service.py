@@ -9,22 +9,18 @@ interface ModeloPredicao, não de implementações concretas, permitindo
 trocar modelos facilmente sem modificar o serviço.
 """
 
-from time import time
-
 import pandas as pd
-import numpy as np
 import logging
-from typing import Dict, Optional
+from typing import Dict, Optional, Any, Union
 
-from appSM.ml_pipeline.Tratamento import Tratamento
-from appSM.ml_pipeline.modelos.base_modelo import ModeloPredicao
-from ..modelos.regressaoLinear import LinearRegressionAcumulado
+from appSM.domain.tratamento import normalizar_historico
+from appSM.domain.regressao_linear import LinearRegressionAcumulado
 
 # Configure logger
 logger = logging.getLogger(__name__)
 
 
-class PredicaoService(Tratamento):
+class PredicaoService:
     """
     Serviço unificado para predição de consumo com injeção de dependência.
     
@@ -51,7 +47,7 @@ class PredicaoService(Tratamento):
     TIPO_DIARIA = 'diaria'
     TIPO_MENSAL = 'mensal'
     
-    def __init__(self, tipo: Optional[str] = None, modelo: Optional[ModeloPredicao] = None):
+    def __init__(self, tipo: Optional[str] = None, modelo: Optional[Any] = None):
         """
         Inicializa o serviço de predição com injeção de dependência.
         
@@ -69,13 +65,15 @@ class PredicaoService(Tratamento):
             f"modelo={type(self.modelo).__name__}"
         )
     
-    def processarDados(self, dados_request: Dict[str, float]) -> float:
+    def _normalizar_historico(self, dados_request, frequencia: str) -> pd.DataFrame:
+        return normalizar_historico(dados_request, frequencia=frequencia)
+
+    def processarDados(self, dados_request: Union[pd.DataFrame, Dict[str, float], Any]) -> float:
         """
         Processa dados históricos e retorna predição do próximo consumo.
         
         Args:
-            dados_request (dict): Dicionário com datas e consumos históricos.
-                                 Formato: {'DD/MM/YYYY': valor_float}
+            dados_request (dict|DataFrame): Dados com datas e consumos históricos.
         
         Returns:
             float: Valor previsto para o próximo consumo
@@ -85,7 +83,7 @@ class PredicaoService(Tratamento):
             Exception: Se houver erro no processamento ou predição
         """
         try:
-            if not dados_request:
+            if dados_request is None or (isinstance(dados_request, (pd.DataFrame, pd.Series)) and dados_request.empty) or (not isinstance(dados_request, (pd.DataFrame, pd.Series)) and not dados_request):
                 raise ValueError("dados_request não pode estar vazio")
 
             frequencia = self.TIPO_MENSAL if self.tipo == self.TIPO_MENSAL else self.TIPO_DIARIA
