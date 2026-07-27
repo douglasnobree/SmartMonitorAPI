@@ -1,78 +1,48 @@
-# Change Impact Map
+# Change Impact Map (Arquitetura V2 & Clean Layers)
 
-## /prediction/daily
-- Arquivos afetados: [projectSM/urls.py](projectSM/urls.py), [appSM/views_deprecated.py](appSM/views_deprecated.py), [appSM/ml_pipeline/senseFlow_A/predicao/predicao_service.py](appSM/ml_pipeline/senseFlow_A/predicao/predicao_service.py), [appSM/ml_pipeline/senseFlow_A/modelos/regressaoLinear.py](appSM/ml_pipeline/senseFlow_A/modelos/regressaoLinear.py)
-- Servicos chamados: PredicaoService -> LinearRegressionAcumulado. [Fonte: codigo]
-- Regras impactadas: treino por request; ajuste diario; input dict data->consumo. [Fonte: codigo]
-- Possiveis efeitos colaterais: custo computacional por request; variacao por ordem dos dados. [Inferencia]
-- Testes que deveriam existir: validacao de payload, erro JSON invalido, previsao nao negativa, autenticacao obrigatoria. [Inferencia]
+## /v2/prediction/daily & /v2/prediction/monthly
+- **Arquivos afetados:** [projectSM/urls.py](projectSM/urls.py), [appSM/api/views.py](appSM/api/views.py), [appSM/api/serializers.py](appSM/api/serializers.py), [appSM/infrastructure/db_fetcher.py](appSM/infrastructure/db_fetcher.py), [appSM/services/predicao_service.py](appSM/services/predicao_service.py), [appSM/domain/regressao_linear.py](appSM/domain/regressao_linear.py), [appSM/domain/tratamento.py](appSM/domain/tratamento.py)
+- **Serviços chamados:** `ExternalDataFetcher` -> `PredicaoService` (composição com `normalizar_historico`) -> `LinearRegressionAcumulado`.
+- **Regras impactadas:** Busca nativa de DataFrame no banco externo com *Module-level Lazy Engine*; normalização de datas e preenchimento de gaps por mediana; inferência do consumo acumulado.
+- **Possíveis efeitos colaterais:** Sensibilidade a indisponibilidade ou latência do banco externo de histórico.
+- **Cobertura de Testes Ativa:** Validação de payload por serializers, exceções para sensor/unidade inexistente, autenticação JWT, tratamento de datas e conversão pura em DataFrame testadas e operacionais na suíte de testes (`appSM/tests.py` e `appSM/test_characterization.py`).
 
-## /prediction/monthly
-- Arquivos afetados: [projectSM/urls.py](projectSM/urls.py), [appSM/views_deprecated.py](appSM/views_deprecated.py), [appSM/ml_pipeline/senseFlow_A/predicao/predicao_service.py](appSM/ml_pipeline/senseFlow_A/predicao/predicao_service.py), [appSM/ml_pipeline/senseFlow_A/modelos/regressaoLinear.py](appSM/ml_pipeline/senseFlow_A/modelos/regressaoLinear.py)
-- Servicos chamados: PredicaoService -> LinearRegressionAcumulado. [Fonte: codigo]
-- Regras impactadas: treino por request; ajuste mensal via residuos; input dict data->consumo. [Fonte: codigo]
-- Possiveis efeitos colaterais: sensibilidade a historico curto; custo por request. [Inferencia]
-- Testes que deveriam existir: validacao de payload, erro JSON invalido, predicao positiva, autenticacao obrigatoria. [Inferencia]
-
-## /statistic/daily
-- Arquivos afetados: [projectSM/urls.py](projectSM/urls.py), [appSM/views_deprecated.py](appSM/views_deprecated.py), [appSM/ml_pipeline/senseFlow_A/classificacao/analise_estatistica_service.py](appSM/ml_pipeline/senseFlow_A/classificacao/analise_estatistica_service.py)
-- Servicos chamados: AnaliseEstatisticaService (janela=30). [Fonte: codigo]
-- Regras impactadas: bandas de Bollinger, tratamento de outliers, classificacao do ultimo ponto. [Fonte: codigo]
-- Possiveis efeitos colaterais: classificacao altera consumo se outlier; ordem dos dados impacta bandas. [Inferencia]
-- Testes que deveriam existir: classificacao por faixa, tratamento de outliers, payload vazio/JSON invalido, autenticacao obrigatoria. [Inferencia]
-
-## /statistic/monthly
-- Arquivos afetados: [projectSM/urls.py](projectSM/urls.py), [appSM/views_deprecated.py](appSM/views_deprecated.py), [appSM/ml_pipeline/senseFlow_A/classificacao/analise_estatistica_service.py](appSM/ml_pipeline/senseFlow_A/classificacao/analise_estatistica_service.py)
-- Servicos chamados: AnaliseEstatisticaService (janela=12). [Fonte: codigo]
-- Regras impactadas: bandas de Bollinger, classificacao do ultimo ponto. [Fonte: codigo]
-- Possiveis efeitos colaterais: janela curta pode afetar estabilidade. [Inferencia]
-- Testes que deveriam existir: classificacao mensal, payload vazio/JSON invalido, autenticacao obrigatoria. [Inferencia]
-
-## /statistic/data
-- Arquivos afetados: [projectSM/urls.py](projectSM/urls.py), [appSM/views_deprecated.py](appSM/views_deprecated.py), [appSM/ml_pipeline/senseFlow_A/classificacao/analise_estatistica_service.py](appSM/ml_pipeline/senseFlow_A/classificacao/analise_estatistica_service.py)
-- Servicos chamados: AnaliseEstatisticaService.obterDadosCompletos. [Fonte: codigo]
-- Regras impactadas: retorno de ate 30 registros, bandas calculadas, preenchimento de nulos. [Fonte: codigo]
-- Possiveis efeitos colaterais: volume de resposta; consumo alterado por outlier. [Inferencia]
-- Testes que deveriam existir: tamanho maximo de retorno, campos esperados, payload vazio/JSON invalido. [Inferencia]
+## /v2/statistic/daily, /v2/statistic/monthly & /v2/statistic/data
+- **Arquivos afetados:** [projectSM/urls.py](projectSM/urls.py), [appSM/api/views.py](appSM/api/views.py), [appSM/api/serializers.py](appSM/api/serializers.py), [appSM/infrastructure/db_fetcher.py](appSM/infrastructure/db_fetcher.py), [appSM/services/analise_estatistica_service.py](appSM/services/analise_estatistica_service.py), [appSM/domain/tratamento.py](appSM/domain/tratamento.py)
+- **Serviços chamados:** `ExternalDataFetcher` -> `AnaliseEstatisticaService` (composição com `normalizar_historico`).
+- **Regras impactadas:** Cálculo de média móvel e desvio padrão (Bandas de Bollinger), tratamento de outliers (faturados substituidos pela mediana da série), fatiamento pandas direto sem round-trip intermediário.
+- **Possíveis efeitos colaterais:** Alterações no limiar da janela estatística (30 dias para diário, 12 para mensal) reclassificam séries à beira das faixas de tolerância.
+- **Cobertura de Testes Ativa:** Testes de caracterização congelando o cálculo preciso de médias móveis, limites de bandas superior/inferior, validação DRF de request e respostas mockadas limpas.
 
 ## /v2/classification/history
-- Arquivos afetados: [projectSM/urls.py](projectSM/urls.py), [appSM/v2_views.py](appSM/v2_views.py), [appSM/serializers.py](appSM/serializers.py), [fetchers/db_fetcher.py](fetchers/db_fetcher.py), [appSM/ml_pipeline/senseFlow_A/classificacao/classification_history_service.py](appSM/ml_pipeline/senseFlow_A/classificacao/classification_history_service.py)
-- Servicos chamados: ClassificationHistoryService -> ExternalDataFetcher -> AnaliseEstatisticaService.processarDados. [Fonte: codigo]
-- Regras impactadas: consulta RelatorioDiarioUnidade, contexto historico anterior, periodos mensais por dia de fechamento, resposta filtrada ao periodo solicitado. [Fonte: codigo]
-- Possiveis efeitos colaterais: sensibilidade a disponibilidade/schema do banco externo; custo cresce com numero de linhas classificadas porque cada linha reutiliza o pipeline como ultimo ponto. [Inferencia]
-- Testes que deveriam existir: modo daily, modo monthly, periodo invalido, dispositivo inexistente, ausencia total de dados, autenticacao obrigatoria. [Inferencia]
+- **Arquivos afetados:** [projectSM/urls.py](projectSM/urls.py), [appSM/api/views.py](appSM/api/views.py), [appSM/api/serializers.py](appSM/api/serializers.py), [appSM/infrastructure/db_fetcher.py](appSM/infrastructure/db_fetcher.py), [appSM/services/classification_history_service.py](appSM/services/classification_history_service.py), [appSM/services/analise_estatistica_service.py](appSM/services/analise_estatistica_service.py)
+- **Serviços chamados:** `ClassificationHistoryService` -> `ExternalDataFetcher` -> `AnaliseEstatisticaService`.
+- **Regras impactadas:** Montagem de série temporal em lote mantendo histórico anterior ao período solicitado para contexto estatístico de Bollinger (fatiado dinamicamente com indexação Pandas). Suporta fechamentos de ciclo mensal e diário.
+- **Possíveis efeitos colaterais:** O consumo de CPU escala proporcionalmente ao número de registros cobrindo o período da consulta.
+- **Cobertura de Testes Ativa:** Teste unitário verificando restrição à janela de resposta com reaproveitamento do histórico anterior em memória sem serialização dict extra.
 
 ## /classify/ph
-- Arquivos afetados: [projectSM/urls.py](projectSM/urls.py), [appSM/views_deprecated.py](appSM/views_deprecated.py), [appSM/ml_pipeline/senseflowQ/ph_classification/ph_classification_service.py](appSM/ml_pipeline/senseflowQ/ph_classification/ph_classification_service.py)
-- Servicos chamados: PHClassificationService.classify -> joblib.load. [Fonte: codigo]
-- Regras impactadas: validacao de client_id, conversao de ph_value, busca de modelo por client_id, versao por nome. [Fonte: codigo]
-- Possiveis efeitos colaterais: FileNotFoundError para cliente desconhecido; impacto em deploy sem modelos. [Fonte: codigo]
-- Testes que deveriam existir: cliente inexistente, ph_value fora de faixa, modelo sem predict_proba, autenticacao obrigatoria. [Inferencia]
+- **Arquivos afetados:** [projectSM/urls.py](projectSM/urls.py), [appSM/api/views.py](appSM/api/views.py), [appSM/services/ph_classification_service.py](appSM/services/ph_classification_service.py)
+- **Serviços chamados:** `PHClassificationService.classify` -> `joblib.load` (em `appSM/domain/models/`).
+- **Regras impactadas:** Validação de `client_id`, conversão de `ph_value` para float, busca dinâmica de arquivo `.joblib` em disco local com cache da engine ou leitura local.
+- **Possíveis efeitos colaterais:** Retorna HTTP 404 caso o diretório do cliente ou o arquivo de modelo não exista em `appSM/domain/models/ph_classification/`.
+- **Cobertura de Testes Ativa:** Testada para clientes válidos, exceções de arquivo inexistente (404) e parâmetros inválidos (422/400).
 
 ## /token
-- Arquivos afetados: [projectSM/urls.py](projectSM/urls.py)
-- Servicos chamados: SimpleJWT TokenObtainPairView. [Fonte: codigo]
-- Regras impactadas: formato de request username/password. [Fonte: codigo]
-- Possiveis efeitos colaterais: expor refresh token se habilitado. [Inferencia]
-- Testes que deveriam existir: credenciais invalidas, formato de resposta. [Inferencia]
+- **Arquivos afetados:** [projectSM/urls.py](projectSM/urls.py), [projectSM/authentication.py](projectSM/authentication.py)
+- **Serviços chamados:** SimpleJWT `TokenObtainPairView` com autenticação customizada (`JWTAntigravityAuthentication` sem prefixo Bearer).
+- **Regras impactadas:** Validação de credenciais e emissão de par de tokens.
 
 ## /swagger, /redoc, /
-- Arquivos afetados: [projectSM/urls.py](projectSM/urls.py)
-- Servicos chamados: drf-yasg schema_view. [Fonte: codigo]
-- Regras impactadas: disponibilidade de docs sem auth. [Fonte: codigo]
-- Possiveis efeitos colaterais: exposicao de contrato publicamente. [Inferencia]
-- Testes que deveriam existir: acesso publico, status 200. [Inferencia]
+- **Arquivos afetados:** [projectSM/urls.py](projectSM/urls.py)
+- **Serviços chamados:** drf-yasg `schema_view`.
+- **Regras impactadas:** Documentação interativa publicamente acessível para introspecção de contratos REST.
 
 ## /admin
-- Arquivos afetados: [projectSM/urls.py](projectSM/urls.py)
-- Servicos chamados: Django admin. [Fonte: codigo]
-- Regras impactadas: acesso via auth Django. [Fonte: codigo]
-- Possiveis efeitos colaterais: superficie de administracao exposta. [Inferencia]
-- Testes que deveriam existir: acesso restrito. [Inferencia]
+- **Arquivos afetados:** [projectSM/urls.py](projectSM/urls.py)
+- **Serviços chamados:** Django admin (autenticação tradicional).
 
 ## Rotas Prometheus (django_prometheus.urls)
-- Arquivos afetados: [projectSM/urls.py](projectSM/urls.py), [projectSM/settings.py](projectSM/settings.py)
-- Servicos chamados: django_prometheus. [Fonte: codigo]
-- Regras impactadas: exposicao de metrics. [Fonte: codigo]
-- Possiveis efeitos colaterais: acesso publico a metricas. [Inferencia]
-- Testes que deveriam existir: endpoint de metrics acessivel e protegido se necessario. [Inferencia]
+- **Arquivos afetados:** [projectSM/urls.py](projectSM/urls.py), [projectSM/settings.py](projectSM/settings.py)
+- **Serviços chamados:** django_prometheus.
+- **Regras impactadas:** Coleta e exposição de métricas de uso HTTP do Django e chamadas do banco para monitoramento de observabilidade.

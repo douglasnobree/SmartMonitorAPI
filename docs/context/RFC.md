@@ -1,108 +1,85 @@
-# RFC - Funcionamento Tecnico
+# RFC - Funcionamento Técnico e Arquitetura Limpa (V2)
 
 ## Contexto
-API REST Django para analise de consumo de agua e classificacao de pH. Atua como servico especializado consumido por outra API backend. [Fonte: README]
+API REST Django modular para análise de consumo de água e classificação de qualidade de pH. Atua como serviço de Machine Learning e estatética de alta performance consumido por outras aplicações e backends corporativos. [Fonte: README]
 
-## Arquitetura atual
-- Framework: Django 5.x + Django REST Framework. [Fonte: README][Fonte: codigo]
-- Autenticacao: JWT via SimpleJWT, header Authorization sem prefixo. [Fonte: codigo]
-- Persistencia: SQLite (db.sqlite3) para auth/admin e metadados Django. [Fonte: codigo]
-- ML/Analise: pipeline local com pandas/scikit-learn; modelos pH em disco. [Fonte: codigo]
-- Observabilidade: logging em arquivo e console; sem exportacao Prometheus no codigo atual. [Fonte: codigo]
-- Deploy: Docker + Gunicorn + WhiteNoise; opcional PM2. [Fonte: README][Fonte: codigo]
+## Arquitetura Atual
+- **Framework:** Django 5.x + Django REST Framework + drf-yasg.
+- **Autenticação:** JWT via SimpleJWT com verificação no header `Authorization` (sem prefixo `Bearer`).
+- **Padrão de Arquitetura:** Clean Architecture em 4 camadas independentes sob o app principal (`api`, `services`, `domain`, `infrastructure`).
+- **Persistência de Negócio:** Operação *read-only* em banco externo SQL acessada por conectores com *Module-level Lazy Engine* em `infrastructure/db_fetcher.py`. SQLite mantido no projeto para tabelas administrativas e de controle do Django Admin.
+- **ML & Estatística:** Módulos matemáticos puros e composicionais com pandas e scikit-learn na camada `domain/`; modelos `.joblib` em disco.
+- **Fluxo de Dados Otimizado:** Passagem nativa de estruturas `pandas.DataFrame` end-to-end do banco de dados ao serviço de inferência sem round-trips para dicionários ou perdas temporais de indexação.
+- **Observabilidade:** Logs rotativos em arquivo (`smartmonitor.log`, `errors.log`) e console integrados ao logger `appSM`.
+- **Deploy:** Docker + Gunicorn + WhiteNoise; opcional PM2.
 
-## Fluxo da requisicao
-1. Cliente envia request HTTP com Authorization (token JWT). [Fonte: codigo]
-2. View valida body JSON e estrutura (objeto/dict ou campos obrigatorios). [Fonte: codigo]
-3. Servico de ML/analise processa dados em memoria. [Fonte: codigo]
-4. Resposta JSON retornada com resultado ou erro. [Fonte: codigo]
+## Fluxo da Requisição
+1. Cliente envia request HTTP com token JWT em `Authorization`.
+2. View (`appSM/api/views.py`) valida o body e os identificadores usando Serializers DRF (`appSM/api/serializers.py`).
+3. View invoca o serviço correspondente em `appSM/services/`, que por sua vez solicita dados à camada `infrastructure` (`ExternalDataFetcher`).
+4. Os dados em formato `DataFrame` chegam limpos à camada `domain/tratamento.py`, onde ocorre a normalização por composição (`normalizar_historico`), preenchimento de medianas e regressões/cálculos de Bollinger.
+5. A resposta tratada em JSON é devolvida em milissegundos com precisão matemática testada.
 
-## Componentes
-- appSM.views_deprecated: endpoints de predicao, analise estatistica e classificacao de pH. [Fonte: codigo]
-- appSM.v2_views: endpoints v2 com consulta a banco externo read-only. [Fonte: codigo]
-- appSM.ml_pipeline.senseFlow_A: servicos de predicao e analise estatistica. [Fonte: codigo]
-- appSM.ml_pipeline.senseflowQ: servico de classificacao de pH. [Fonte: codigo]
-- fetchers.db_fetcher: acesso ao banco externo e agregacao do historico. [Fonte: codigo]
-- projectSM.authentication: autenticacao JWT customizada (sem prefixo). [Fonte: codigo]
-- projectSM.settings: configuracao de logs, staticfiles e DB. [Fonte: codigo]
+## Componentes da Estrutura Modular
+- `appSM.api.views`: Conjunto consolidado de endpoints REST V2 para previsão, estatística e classificação de pH.
+- `appSM.api.serializers`: Contratos DRF dedicados à validação estrita de requisições inteiras.
+- `appSM.services.*`: Casos de uso e orquestração do fluxo de ML (`predicao_service`, `analise_estatistica_service`, `classification_history_service`, `ph_classification_service`).
+- `appSM.domain.*`: Regras fundamentadas (normalização em `tratamento.py`, matemática em `regressao_linear.py` e persistência de pesos em `models/`).
+- `appSM.infrastructure.db_fetcher`: Camada isolada do conector SQL com Lazy evaluation de conexões.
+- `projectSM.authentication`: Adaptador JWT customizado sem prefixos.
 
-## Contratos
-Tabela de endpoints principais (todos com JWT, exceto /token e docs).
+## Contratos da API
 
-| Endpoint | Metodo | Objetivo | Entradas | Saidas | Erros | Dependencias | Efeitos colaterais |
+Tabela oficial de endpoints ativos na versão 2:
+
+| Endpoint | Método | Objetivo | Entradas | Saídas | Erros | Dependências | Efeitos colaterais |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| /token | POST | Obter JWT | username, password (JSON) | access/refresh | 401 | SimpleJWT | Nenhum |
-| /prediction/daily | POST | Predicao diaria | {data: consumo} | {Prediction} | 400, 422, 500 | PredicaoService | Treino em memoria |
-| /prediction/monthly | POST | Predicao mensal | {data: consumo} | {Prediction} | 400, 422, 500 | PredicaoService | Treino em memoria |
-| /statistic/daily | POST | Classificacao diaria | {data: consumo} | {Data, Consumo, classificacao} | 400, 401, 422, 500 | AnaliseEstatisticaService | Tratamento de outliers |
-| /statistic/monthly | POST | Classificacao mensal | {data: consumo} | {Data, Consumo, classificacao} | 400, 422, 500 | AnaliseEstatisticaService | Tratamento de outliers |
-| /statistic/data | POST | Dados completos bandas | {data: consumo} | {dados: [..]} | 400, 401, 422, 500 | AnaliseEstatisticaService | Retorna ate 30 registros |
-| /classify/ph | POST | Classificacao pH | {client_id, ph_value} | {client_id, ph_value, classification, confidence?, model_version} | 400, 404, 422, 500 | PHClassificationService | Carrega modelo do disco |
-| /swagger | GET | Swagger UI | - | UI | - | drf-yasg | Nenhum |
-| /redoc | GET | Redoc UI | - | UI | - | drf-yasg | Nenhum |
-| / | GET | Swagger UI (root) | - | UI | - | drf-yasg | Nenhum |
-| /admin | GET | Admin Django | - | UI | 302/403 | Django admin | Nenhum |
+| `/token` | POST | Obter JWT | `username`, `password` | `access`/`refresh` | 401 | SimpleJWT | Nenhum |
+| `/v2/prediction/daily` | POST | Predição diária | `sensor_id` | `{Prediction}` | 400, 401, 404, 422, 500 | `ExternalDataFetcher`, `PredicaoService` | Consulta ao banco externo |
+| `/v2/prediction/monthly` | POST | Predição mensal | `unidade_id`, `dispositivo_id?` | `{Prediction}` | 400, 401, 404, 422, 500 | `ExternalDataFetcher`, `PredicaoService` | Consulta ao banco externo |
+| `/v2/statistic/daily` | POST | Classificação diária | `sensor_id` | `{Data, Consumo, classificacao}` | 400, 401, 404, 422, 500 | `ExternalDataFetcher`, `AnaliseEstatisticaService` | Consulta ao banco externo |
+| `/v2/statistic/monthly` | POST | Classificação mensal | `unidade_id`, `dispositivo_id?` | `{Data, Consumo, classificacao}` | 400, 401, 404, 422, 500 | `ExternalDataFetcher`, `AnaliseEstatisticaService` | Consulta ao banco externo |
+| `/v2/statistic/data` | POST | Dados completos de Bollinger | `sensor_id` | `{dados: [..]}` | 400, 401, 404, 422, 500 | `ExternalDataFetcher`, `AnaliseEstatisticaService` | Consulta ao banco externo |
+| `/v2/classification/history`| POST| Histórico temporal | `type` (daily/monthly), `unidade_id`, `data_inicio`, `data_fim` ou `ano`| `{results: [...]}` | 400, 401, 404, 422, 500 | `ClassificationHistoryService`, `ExternalDataFetcher`| Processa contexto anterior e recorta período de saída |
+| `/classify/ph` | POST | Qualidade e pH | `client_id`, `ph_value` | `{client_id, ph_value, classification, ...}` | 400, 401, 404, 422, 500 | `PHClassificationService` | Carrega modelo `.joblib` em disco |
+| `/swagger` | GET | Swagger UI | - | Documentação UI | - | drf-yasg | Nenhum |
+| `/redoc` | GET | Redoc UI | - | Documentação UI | - | drf-yasg | Nenhum |
+| `/admin` | GET | Admin Django | - | Interface de Admin | 302/403 | Django admin | Nenhum |
 
-[Fontes: codigo]
-
-### Contratos v2
-
-As rotas `v2` continuam autenticadas, mas trocam o payload legado por filtros de consulta ao banco externo somente leitura.
-
-| Endpoint | Metodo | Objetivo | Entradas | Saidas | Erros | Dependencias | Efeitos colaterais |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| /v2/prediction/daily | POST | Predicao diaria por sensor | sensor_id | {Prediction} | 400, 422, 404, 500 | ExternalDataFetcher, PredicaoService | Consulta banco externo |
-| /v2/prediction/monthly | POST | Predicao mensal por unidade | unidade_id, dispositivo_id? | {Prediction} | 400, 422, 404, 500 | ExternalDataFetcher, PredicaoService | Consulta banco externo |
-| /v2/statistic/daily | POST | Classificacao diaria por sensor | sensor_id | {Data, Consumo, classificacao} | 400, 422, 404, 500 | ExternalDataFetcher, AnaliseEstatisticaService | Consulta banco externo |
-| /v2/statistic/monthly | POST | Classificacao mensal por unidade | unidade_id, dispositivo_id? | {Data, Consumo, classificacao} | 400, 422, 404, 500 | ExternalDataFetcher, AnaliseEstatisticaService | Consulta banco externo |
-| /v2/statistic/data | POST | Dados completos bandas diarias | sensor_id | {dados: [..]} | 400, 422, 404, 500 | ExternalDataFetcher, AnaliseEstatisticaService | Consulta banco externo |
-| /v2/classification/history | POST | Classificacao historica para relatorios | type=daily, unidade_id, data_inicio, data_fim ou type=monthly, unidade_id, ano, dispositivo_id? | {results: [{periodo, consumo, classificacao}]} | 400, 422, 404, 500 | ClassificationHistoryService, ExternalDataFetcher, AnaliseEstatisticaService | Consulta banco externo; usa contexto historico sem retorna-lo |
-
-## Sequencia operacional
-Predicao e analise seguem fluxo request -> parse JSON -> validar -> processar -> responder.
+## Sequência Operacional (V2)
 
 ```mermaid
 sequenceDiagram
-    participant C as Client
-    participant API as Django API
-    participant ML as ML Pipeline
-    C->>API: POST /prediction/daily (JSON + JWT)
-    API->>ML: PredicaoService.processarDados
-    ML-->>API: valor previsto
-    API-->>C: 200 {Prediction}
+    participant C as Cliente API
+    participant API as appSM/api (Views & Serializers)
+    participant S as appSM/services (Caso de Uso)
+    participant I as appSM/infrastructure (Fetcher)
+    participant D as appSM/domain (Tratamento & Modelos)
+    C->>API: POST /v2/prediction/daily (sensor_id + JWT)
+    API->>S: predicao_service.processarDados()
+    S->>I: fetch_daily_history(sensor_id)
+    I-->>S: retorna pandas.DataFrame (Lazy SQL)
+    S->>D: normalizar_historico(df) & LinearRegression
+    D-->>S: valor de inferida
+    S-->>API: float da predição
+    API-->>C: 200 { "Prediction": <val> }
 ```
 
-## Modelo de dados
-- Nao ha modelos Django definidos em appSM (sem tabelas de dominio). [Fonte: codigo]
-- DB SQLite usada para auth/admin e tabelas internas do Django. [Fonte: codigo]
-- Modelos de pH ficam em disco em /appSM/ml_pipeline/models/ph_classification/client_<id>/. [Fonte: codigo]
+## Modelo de Dados e Persistência
+- Não há tabelas de domínio customizadas mantidas no SQLite nativo; os dados de faturamento residem exclusivamente no banco de histórico de leitura externa.
+- O armazenamento e serialização dos pesos de Machine Learning são baseados no arquivo `.joblib` mantido na pasta de domínio: `appSM/domain/models/ph_classification/client_<id>/`.
 
-## Observabilidade
-- Logs em console e arquivos rotativos (smartmonitor.log, errors.log). [Fonte: codigo]
-- Nao ha middleware nem endpoint Prometheus exposto no codigo atual. [Fonte: codigo]
+## Segurança e Validações
+- Autenticação restrita e mandatória via JWT com parser dedicado por classe customizada em `authentication.py`.
+- Suíte de validação abrangida integralmente por testes de caracterização (regras matemáticas inalteráveis) e testes unitários de borda.
+- Rotas públicas restritas a `/token` (obtenção de credenciais) e documentação OpenAPI.
 
-## Seguranca
-- JWT via SimpleJWT; header Authorization sem prefixo Bearer. [Fonte: codigo]
-- Endpoints de negocio exigem IsAuthenticated. [Fonte: codigo]
-- /token e docs acessiveis sem autenticacao. [Fonte: codigo]
+## Conclusão de Débito Técnico e Evolução
+- **Eliminação de Legado:** Código obsoleto de endpoints v1 descontinuados foi formalmente retirado (`views_deprecated.py`), purgando confusão nos contratos.
+- **Round-trips em Memória Otimizados:** O overhead de conversões entre dicts Python e Pandas foi depurado; todas as operações ocorrem diretamente sobre instâncias de `DataFrame`.
+- **Composição sobre Herança:** Abandonada a classe abstrata massiva `Tratamento` em favor do módulo utilitário puro `tratamento.py`.
+- **Testes e Qualidade:** Cobertura reestruturada e unificada verificável através do comando `python manage.py test`.
 
-## Estrategia de evolucao
-- Substituicao de modelos de predicao via injeccao de dependencia (interface ModeloPredicao). [Fonte: codigo]
-- Modelos de pH versionados por nome de arquivo. [Fonte: codigo]
-- O contrato de pH atual e propositalmente basico e pode mudar para um fluxo mais completo em iteracoes futuras. [Fonte: usuario]
-- A integracao v2 com banco de terceiros e planejada para longo prazo, mas depende de um schema e disponibilidade fora do controle da API. [Fonte: usuario]
-
-## Compatibilidade
-- Expectativa de payload como JSON object (dict) com chaves de data no formato DD/MM/YYYY. [Fonte: codigo]
-- Ordem dos dados e normalizada por data; duplicatas sao agregadas pela mediana e lacunas sao preenchidas pela mediana. [Fonte: codigo]
-
-## Debito tecnico
-- Serializer para validacao de datas existe mas nao e usado nas views. [Fonte: codigo]
-- Endpoint de refresh token comentado. [Fonte: codigo]
-- Sem OpenAPI exportado para versionamento de contrato. [Fonte: codigo]
-- Limites de payload e rate limit ainda nao foram definidos. [Fonte: usuario]
-
-## Perguntas abertas
-- [GAP] Como versionar a evolucao futura do contrato de pH sem quebrar o fluxo existente? [Fonte: usuario]
-- [GAP] Como lidar com mudancas de schema ou indisponibilidade no banco externo de terceiros? [Fonte: usuario]
-- [GAP] Qual politica final de limite de payload e rate limit? [Fonte: usuario]
+## Perguntas em Aberto
+- **[GAP]** Como projetar fallback automatizado caso o banco SQL externo de terceiros enfrente intermitência excessiva (cache ou circuito aberto)?
+- **[GAP]** Qual a estratégia e cadência de re-treinamento ou subida das versões dos modelos `.joblib` para clientes no futuro?

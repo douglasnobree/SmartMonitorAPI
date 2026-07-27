@@ -1,57 +1,62 @@
 # Agent Context Index
 
 ## Sistema
-API REST Django para predicao de consumo, analise estatistica e classificacao de pH, consumida por outro backend. [Fonte: README]
+API REST Django para predição de consumo, análise estatística e classificação de pH, consumida por outro backend, reestruturada sob os princípios de Clean Architecture. [Fonte: README]
 
-## Componentes
-- API endpoints: [projectSM/urls.py](projectSM/urls.py), [appSM/views_deprecated.py](appSM/views_deprecated.py) e [appSM/v2_views.py](appSM/v2_views.py)
-- Predicao: [appSM/ml_pipeline/senseFlow_A/predicao/predicao_service.py](appSM/ml_pipeline/senseFlow_A/predicao/predicao_service.py) e [appSM/ml_pipeline/senseFlow_A/modelos/regressaoLinear.py](appSM/ml_pipeline/senseFlow_A/modelos/regressaoLinear.py)
-- Analise estatistica: [appSM/ml_pipeline/senseFlow_A/classificacao/analise_estatistica_service.py](appSM/ml_pipeline/senseFlow_A/classificacao/analise_estatistica_service.py)
-- Classificacao pH: [appSM/ml_pipeline/senseflowQ/ph_classification/ph_classification_service.py](appSM/ml_pipeline/senseflowQ/ph_classification/ph_classification_service.py)
-- Autenticacao: [projectSM/authentication.py](projectSM/authentication.py)
-- Configuracao: [projectSM/settings.py](projectSM/settings.py)
-- Normalizacao de historico: [appSM/ml_pipeline/Tratamento.py](appSM/ml_pipeline/Tratamento.py)
-- Relatorio historico de classificacao: [appSM/ml_pipeline/senseFlow_A/classificacao/classification_history_service.py](appSM/ml_pipeline/senseFlow_A/classificacao/classification_history_service.py)
-- Busca de dados: [fetchers/db_fetcher.py](fetchers/db_fetcher.py)
+## Componentes (Arquitetura em Camadas)
+- Camada de Apresentação (API): [projectSM/urls.py](projectSM/urls.py), [appSM/api/views.py](appSM/api/views.py) e [appSM/api/serializers.py](appSM/api/serializers.py)
+- Camada de Serviços (Casos de Uso):
+  - Predição linear: [appSM/services/predicao_service.py](appSM/services/predicao_service.py)
+  - Análise estatística: [appSM/services/analise_estatistica_service.py](appSM/services/analise_estatistica_service.py)
+  - Classificação de pH: [appSM/services/ph_classification_service.py](appSM/services/ph_classification_service.py)
+  - Relatório histórico de classificação: [appSM/services/classification_history_service.py](appSM/services/classification_history_service.py)
+- Camada de Domínio (Lógica e Modelos de ML):
+  - Modelos matemáticos: [appSM/domain/regressao_linear.py](appSM/domain/regressao_linear.py)
+  - Módulo de tratamento e normalização funcional: [appSM/domain/tratamento.py](appSM/domain/tratamento.py)
+  - Modelos joblib persistidos: `appSM/domain/models/`
+- Camada de Infraestrutura:
+  - Busca de dados externos com Module-level Lazy Engine: [appSM/infrastructure/db_fetcher.py](appSM/infrastructure/db_fetcher.py)
+- Autenticação: [projectSM/authentication.py](projectSM/authentication.py)
+- Configuração central: [projectSM/settings.py](projectSM/settings.py)
 
 ## Onde encontrar regras
-- Regras de predicao e tratamento: [appSM/ml_pipeline/senseFlow_A/predicao/predicao_service.py](appSM/ml_pipeline/senseFlow_A/predicao/predicao_service.py) e [appSM/ml_pipeline/senseFlow_A/modelos/regressaoLinear.py](appSM/ml_pipeline/senseFlow_A/modelos/regressaoLinear.py)
-- Regras de classificacao estatistica: [appSM/ml_pipeline/senseFlow_A/classificacao/analise_estatistica_service.py](appSM/ml_pipeline/senseFlow_A/classificacao/analise_estatistica_service.py)
-- Regras de classificacao pH: [appSM/ml_pipeline/senseflowQ/ph_classification/ph_classification_service.py](appSM/ml_pipeline/senseflowQ/ph_classification/ph_classification_service.py)
-- Regras de autenticacao: [projectSM/authentication.py](projectSM/authentication.py)
+- Regras de predição e cálculos regressivos: [appSM/services/predicao_service.py](appSM/services/predicao_service.py) e [appSM/domain/regressao_linear.py](appSM/domain/regressao_linear.py)
+- Regras de normalização, tratamento de gaps e preenchimento de mediana: [appSM/domain/tratamento.py](appSM/domain/tratamento.py)
+- Regras de classificação estatística (Bandas de Bollinger): [appSM/services/analise_estatistica_service.py](appSM/services/analise_estatistica_service.py)
+- Regras de classificação de pH: [appSM/services/ph_classification_service.py](appSM/services/ph_classification_service.py)
+- Regras de autenticação: [projectSM/authentication.py](projectSM/authentication.py)
 
 ## Onde modificar cada comportamento
-- Rotas e visibilidade: [projectSM/urls.py](projectSM/urls.py)
-- Validacoes e erros por endpoint: [appSM/views_deprecated.py](appSM/views_deprecated.py) e [appSM/v2_views.py](appSM/v2_views.py)
-- Predicao diaria/mensal: [appSM/ml_pipeline/senseFlow_A/predicao/predicao_service.py](appSM/ml_pipeline/senseFlow_A/predicao/predicao_service.py)
-- Classificacao estatistica: [appSM/ml_pipeline/senseFlow_A/classificacao/analise_estatistica_service.py](appSM/ml_pipeline/senseFlow_A/classificacao/analise_estatistica_service.py)
-- Classificacao de pH: [appSM/ml_pipeline/senseflowQ/ph_classification/ph_classification_service.py](appSM/ml_pipeline/senseflowQ/ph_classification/ph_classification_service.py)
+- Rotas, permissões e visibilidade do Swagger: [projectSM/urls.py](projectSM/urls.py)
+- Validações, serialização de payload e erros HTTP: [appSM/api/views.py](appSM/api/views.py) e [appSM/api/serializers.py](appSM/api/serializers.py)
+- Predição diária/mensal v2: [appSM/services/predicao_service.py](appSM/services/predicao_service.py)
+- Classificação estatística: [appSM/services/analise_estatistica_service.py](appSM/services/analise_estatistica_service.py)
+- Classificação de pH: [appSM/services/ph_classification_service.py](appSM/services/ph_classification_service.py)
+- Adaptadores de banco de dados e conector SQL: [appSM/infrastructure/db_fetcher.py](appSM/infrastructure/db_fetcher.py)
 - Auth JWT: [projectSM/authentication.py](projectSM/authentication.py) e SimpleJWT settings em [projectSM/settings.py](projectSM/settings.py)
 
-## Dependencias
-- Runtime e libs principais: [requirements.txt](requirements.txt)
+## Dependências
+- Runtime e libs principais: [requirements.txt](requirements.txt) (pandas, scikit-learn, djangorestframework, drf-yasg, django-cors-headers, psycopg2-binary, SQLAlchemy)
 - Alternativas por ambiente: [requirements/base.txt](requirements/base.txt), [requirements/development.txt](requirements/development.txt), [requirements/production.txt](requirements/production.txt)
 
-## Arquivos criticos
-- [projectSM/settings.py](projectSM/settings.py)
-- [projectSM/urls.py](projectSM/urls.py)
-- [appSM/views_deprecated.py](appSM/views_deprecated.py)
-- [appSM/v2_views.py](appSM/v2_views.py)
-- [appSM/ml_pipeline/senseFlow_A/predicao/predicao_service.py](appSM/ml_pipeline/senseFlow_A/predicao/predicao_service.py)
-- [appSM/ml_pipeline/senseFlow_A/classificacao/analise_estatistica_service.py](appSM/ml_pipeline/senseFlow_A/classificacao/analise_estatistica_service.py)
-- [appSM/ml_pipeline/senseflowQ/ph_classification/ph_classification_service.py](appSM/ml_pipeline/senseflowQ/ph_classification/ph_classification_service.py)
+## Arquivos críticos e Suíte de Testes
+- Configuração: [projectSM/settings.py](projectSM/settings.py) e [projectSM/urls.py](projectSM/urls.py)
+- API Principal (V2): [appSM/api/views.py](appSM/api/views.py) e [appSM/api/serializers.py](appSM/api/serializers.py)
+- Serviços: [appSM/services/predicao_service.py](appSM/services/predicao_service.py) e [appSM/services/analise_estatistica_service.py](appSM/services/analise_estatistica_service.py)
+- Testes unitários e de API: [appSM/tests.py](appSM/tests.py)
+- Testes de caracterização (regras ML invioláveis): [appSM/test_characterization.py](appSM/test_characterization.py)
 
 ## Fluxos importantes
-- Predicao: request -> parse JSON -> PredicaoService -> resposta. [Fonte: codigo]
-- Analise estatistica: request -> analise estatistica -> classificacao -> resposta. [Fonte: codigo]
-- Classificacao pH: request -> carga de modelo local -> predict -> resposta. [Fonte: codigo]
-- Autenticacao: JWT no header Authorization sem prefixo. [Fonte: codigo]
+- Predição / Estatística V2: Request -> Validação em serializers -> Consulta a banco em `db_fetcher` (retorna DataFrame puro) -> Serviço executa `normalizar_historico` -> Modelo realiza inferência -> Resposta JSON.
+- Classificação pH: Request -> Carga sob demanda do modelo `.joblib` em `appSM/domain/models` -> Predict -> Resposta JSON.
+- Autenticação: JWT no header Authorization sem prefixo `Bearer`.
 
 ## Ordem recomendada de leitura
 1. [README.md](README.md)
 2. [projectSM/urls.py](projectSM/urls.py)
-3. [appSM/views_deprecated.py](appSM/views_deprecated.py) e [appSM/v2_views.py](appSM/v2_views.py)
-4. [appSM/ml_pipeline/senseFlow_A/predicao/predicao_service.py](appSM/ml_pipeline/senseFlow_A/predicao/predicao_service.py)
-5. [appSM/ml_pipeline/senseFlow_A/classificacao/analise_estatistica_service.py](appSM/ml_pipeline/senseFlow_A/classificacao/analise_estatistica_service.py)
-6. [appSM/ml_pipeline/senseflowQ/ph_classification/ph_classification_service.py](appSM/ml_pipeline/senseflowQ/ph_classification/ph_classification_service.py)
-7. [projectSM/settings.py](projectSM/settings.py)
+3. [appSM/api/views.py](appSM/api/views.py) e [appSM/api/serializers.py](appSM/api/serializers.py)
+4. [appSM/domain/tratamento.py](appSM/domain/tratamento.py)
+5. [appSM/services/predicao_service.py](appSM/services/predicao_service.py)
+6. [appSM/services/analise_estatistica_service.py](appSM/services/analise_estatistica_service.py)
+7. [appSM/infrastructure/db_fetcher.py](appSM/infrastructure/db_fetcher.py)
+8. [appSM/test_characterization.py](appSM/test_characterization.py)

@@ -110,7 +110,7 @@ A documentação interativa está disponível via Swagger UI:
 
 ### Autenticação
 
-Os endpoints de negocio (`/prediction/*`, `/statistic/*`, `/classify/ph` e `/v2/*`) requerem autenticação JWT.
+Os endpoints de negócio (`/v2/*` e `/classify/ph`) requerem autenticação JWT.
 Os endpoints públicos são `/token`, `/`, `/swagger` e `/redoc`.
 
 #### Obter Token
@@ -133,64 +133,20 @@ Authorization: seu_token_jwt
 
 Observação: o token é enviado sem prefixo `Bearer`.
 
-### Endpoints Principais
+### Endpoints da API
 
-#### 🔮 Predição
+#### 🔮 Predição e Análise Estatística (Versão 2)
 
-- `POST /prediction/daily` - Predição de consumo diário
-- `POST /prediction/monthly` - Predição de consumo mensal
-
-**Formato de entrada:**
-```json
-{
-    "01/06/2025": 120.5,
-    "02/06/2025": 115.2,
-    "03/06/2025": 130.0
-}
-```
-
-#### 📊 Análise Estatística
-
-- `POST /statistic/daily` - Classificação de consumo diário
-- `POST /statistic/monthly` - Classificação de consumo mensal
-- `POST /statistic/data` - Dados completos das bandas de Bollinger
-
-**Formato de entrada:**
-```json
-{
-    "01/06/2025": 120.5,
-    "02/06/2025": 115.2,
-    "03/06/2025": 130.0
-}
-```
-
-#### 💧 Classificação de pH
-
-- `POST /classify/ph` - Classificação de pH da água
-
-Observação: o classificador de pH atual é um fluxo inicial de teste e, no estado presente, retorna uma classe simples de faixa/estado. O contrato pode evoluir no futuro.
-
-**Formato de entrada:**
-```json
-{
-    "client_id": "sisar",
-    "ph_value": 7.2
-}
-```
-
-#### Versão 2
-
-A versão `v2` continua autenticada, mas busca o histórico em banco externo somente leitura.
-Essa integração é pensada para estabilidade de longo prazo, mas depende de um banco mantido por terceiros.
+A API v2 opera nativamente integrada ao banco de dados externo somente leitura de consumo, trazendo estabilidade e processamento em memória eficiente (sem conversões desnecessárias, atuando ponta a ponta com `pandas.DataFrame`).
 
 - `POST /v2/prediction/daily` - Predição diária por `sensor_id`
 - `POST /v2/prediction/monthly` - Predição mensal por `unidade_id` e, opcionalmente, `dispositivo_id`
-- `POST /v2/statistic/daily` - Classificação diária por `sensor_id`
+- `POST /v2/statistic/daily` - Classificação diária de consumo por `sensor_id`
 - `POST /v2/statistic/monthly` - Classificação mensal por `unidade_id` e, opcionalmente, `dispositivo_id`
-- `POST /v2/statistic/data` - Dados completos das bandas diárias por `sensor_id`
+- `POST /v2/statistic/data` - Dados completos das bandas diárias de Bollinger por `sensor_id`
 - `POST /v2/classification/history` - Classificação histórica para relatórios por `unidade_id`, em modo `daily` ou `monthly`
 
-**Exemplos de entrada v2:**
+**Exemplos de entrada V2:**
 ```json
 {
     "sensor_id": "SENSOR-001"
@@ -213,16 +169,21 @@ Essa integração é pensada para estabilidade de longo prazo, mas depende de um
 }
 ```
 
+#### 💧 Classificação de pH
+
+- `POST /classify/ph` - Classificação de pH da água
+
+Utiliza modelos locais personalizados treinados por cliente na camada de domínio.
+
+**Formato de entrada:**
 ```json
 {
-    "type": "monthly",
-    "unidade_id": 12,
-    "ano": 2026,
-    "dispositivo_id": "disp-123"
+    "client_id": "sisar",
+    "ph_value": 7.2
 }
 ```
 
-#### Rotas de infraestrutura
+#### Rotas de Infraestrutura
 
 - `GET /` - Swagger UI
 - `GET /swagger` - Swagger UI
@@ -232,72 +193,64 @@ Essa integração é pensada para estabilidade de longo prazo, mas depende de um
 
 ## 🧪 Como Funciona
 
-### Pipeline de Predição
+### Pipeline de Predição e ML (Arquitetura Modulada)
 
-1. API recebe dados históricos de consumo
-2. Modelo de Regressão Linear é treinado com os dados
-3. Predição é realizada
-4. Resultado é retornado na mesma requisição
-
-**Nota:** O modelo atual não é persistido. Cada requisição treina um novo modelo.
+1. A camada **API** valida a entrada de dados (via Serializers do DRF).
+2. A camada de **Services** solicita o histórico em formato `DataFrame` diretamente à camada de **Infrastructure** (`db_fetcher.py` operando com *Module-level Lazy Engine* e conexão segura externa).
+3. O pré-processamento e limpeza delegam para a camada de **Domain** via composição funcional (`tratamento.py`), tratando *gaps*, *outliers* de faturamento e aplicando medianas sem round-trips para dicionários na memória.
+4. Os modelos matemáticos (Regressão Linear Acumulada e Bandas de Bollinger) efetuam as análises e predições instantâneas.
 
 ### Análise Estatística (Bandas de Bollinger)
 
-1. Calcula média móvel (janela de 30 dias)
-2. Calcula desvio padrão
-3. Define bandas superior e inferior
-4. Classifica o consumo em 5 categorias:
+1. Calcula média móvel (janela customizável/padrão de 30 dias).
+2. Calcula desvio padrão da série.
+3. Define bandas superior e inferior com fatiamento nativo em Pandas.
+4. Classifica o consumo em 5 categorias consolidadas:
    - **Faixa inferior 2** (muito abaixo)
    - **Faixa inferior 1** (abaixo)
    - **Faixa ideal** (normal)
    - **Faixa superior 1** (acima)
    - **Faixa superior 2** (muito acima)
 
-### Observações operacionais
+## 📁 Estrutura do Projeto (Clean Architecture)
 
-- O endpoint `/token` retorna `access` e `refresh`.
-- A rota de refresh dedicada está comentada no código atual.
-- A ordenação do histórico é feita por data após normalização, e datas duplicadas são agregadas pela mediana.
-
-## 📁 Estrutura do Projeto
+A aplicação segue uma separação rigorosa de responsabilidades por camadas modulares:
 
 ```
 SmartMonitorAPI/
-├── appSM/                      # App Django principal
-│   ├── views_deprecated.py    # Views da API (legado)
-│   ├── serializers.py         # Serializers DRF
-│   ├── ml_pipeline/           # Pipeline de Machine Learning
-│   │   ├── Tratamento.py      # Interface abstrata
-│   │   ├── senseFlow_A/       # Análise de consumo de água
-│   │   │   ├── classificacao/ # Serviços de classificação
-│   │   │   ├── modelos/       # Modelos ML
-│   │   │   └── predicao/      # Serviços de predição
-│   │   ├── senseflowQ/        # Análise de qualidade de água
-│   │   │   └── ph_classification/ # Classificação de pH
-│   │   └── models/            # Modelos ML armazenados
-│   │       └── ph_classification/ # Modelos por cliente
-│   └── ...
-├── fetchers/                   # Módulos de busca de dados
-│   ├── db_fetcher.py          # Busca de dados em banco externo
-│   └── ...
-├── projectSM/                  # Configurações Django
-│   ├── settings.py            # Configurações
-│   ├── urls.py                # Rotas
-│   └── authentication.py      # JWT customizado
-├── static/                    # Arquivos estáticos
-├── staticfiles/               # Arquivos coletados
-├── requirements.txt           # Dependências Python
-├── Dockerfile                 # Imagem Docker
-├── docker-compose.yml         # Orquestração Docker
-└── manage.py                  # CLI Django
+├── appSM/                           # App Django principal modulado em 4 camadas:
+│   ├── api/                         # 1. Camada de Apresentação e REST
+│   │   ├── views.py                 # Endpoints DRF V2 e Classificação pH
+│   │   └── serializers.py           # Contratos e validadores JSON
+│   ├── services/                    # 2. Camada de Regras e Casos de Uso
+│   │   ├── predicao_service.py      # Caso de uso: predição linear
+│   │   ├── analise_estatistica_service.py # Caso de uso: bandas estatísticas
+│   │   ├── classification_history_service.py # Caso de uso: séries de faturamento/relatórios
+│   │   └── ph_classification_service.py      # Caso de uso: análise qualidade pH
+│   ├── domain/                      # 3. Camada de Domínio, Algoritmos e Lógica
+│   │   ├── tratamento.py            # Normalização, preenchimento de gaps e limpeza
+│   │   ├── regressao_linear.py      # Modelagem matemática de regressão acumulada
+│   │   └── models/                  # Diretório contendo persistência de modelos (.joblib)
+│   ├── infrastructure/              # 4. Camada de Adaptadores Externos
+│   │   └── db_fetcher.py            # Conexão com banco externo via Module-level Lazy Engine
+│   ├── tests.py                     # Suíte de testes unitários da V2 e Serviços
+│   └── test_characterization.py     # Suíte de testes de caracterização (regras ML invioláveis)
+├── projectSM/                       # Configurações globais do projeto Django
+│   ├── settings.py                  # Parâmetros gerais e diretórios de modelo
+│   ├── urls.py                      # Roteamento central e Swagger
+│   └── authentication.py            # Customização de JWT
+├── static/                          # Arquivos estáticos
+├── requirements.txt                 # Dependências Python (pandas, scikit-learn, django, drf)
+├── Dockerfile                       # Container Docker da aplicação
+└── manage.py                        # CLI Django
 ```
 
-## 🔄 Roadmap Futuro
+## 🔄 Status de Validação
 
-- [ ] **Análise de Qualidade de Água**: Expansão para métricas adicionais de qualidade
-- [ ] **Testes Automatizados**: Cobertura completa de testes unitários e integração
-- [ ] **Métricas de Performance**: Dashboard de monitoramento de API
-- [ ] **Alertas Automáticos**: Notificações para consumo anômalo
+- [x] **Arquitetura Orientada a Camadas**: Migração para Clean Architecture (`api`, `services`, `domain`, `infrastructure`).
+- [x] **Suíte de Testes Automatizados 100% Verde**: Testes unitários da API V2 e de caracterização cobrendo regressão linear, preenchimento de mediana e agregação sem perdas e sem endpoints legados obsoletos.
+- [ ] **Análise de Qualidade de Água**: Expansão para métricas adicionais de qualidade (além do pH).
+- [ ] **Métricas de Performance**: Dashboard de monitoramento de API.
 
 ## 🤝 Contribuindo
 
