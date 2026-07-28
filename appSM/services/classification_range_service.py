@@ -1,6 +1,9 @@
 from datetime import date, timedelta
+import logging
 from appSM.services.classification_history_service import ClassificationHistoryService
 from appSM.infrastructure.db_fetcher import ExternalDataNotFoundError
+
+logger = logging.getLogger(__name__)
 
 class ClassificationRangeService:
     CLASSIFICATION_METADATA = {
@@ -31,8 +34,15 @@ class ClassificationRangeService:
         },
     }
 
-    def processar(self, unidade_id: int, reference_period=None) -> dict:
+    def processar(self, unidade_id: int, reference_period=None, execution_id=None) -> dict:
         target_date = reference_period or date.today() - timedelta(days=1)
+        flow_id = str(execution_id) if execution_id else "none"
+        logger.info(
+            "[RANGE_CLASSIFICATION_API] executionId=%s event=analysis_started unitId=%s referencePeriod=%s",
+            flow_id,
+            unidade_id,
+            target_date.isoformat(),
+        )
         
         validated_data_history = {
             "type": "daily",
@@ -58,8 +68,19 @@ class ClassificationRangeService:
         if metadata is None:
             raise ValueError("Classificacao de consumo fora do intervalo esperado")
 
-        return {
+        result = {
             **metadata,
             "classification": normalized_classification,
             "reference_period": target_date.isoformat(),
+            "execution_id": str(execution_id) if execution_id else None,
         }
+        logger.info(
+            "[RANGE_CLASSIFICATION_API] executionId=%s event=analysis_completed unitId=%s referencePeriod=%s classification=%s severity=%s outsideGreen=%s",
+            flow_id,
+            unidade_id,
+            target_date.isoformat(),
+            normalized_classification,
+            result["severity"],
+            result["outside_green_range"],
+        )
+        return result

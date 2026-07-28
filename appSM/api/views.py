@@ -450,6 +450,7 @@ class V2ClassificationRange(_V2BaseView):
                         "classification": openapi.Schema(type=openapi.TYPE_INTEGER),
                         "classification_label": openapi.Schema(type=openapi.TYPE_STRING),
                         "reference_period": openapi.Schema(type=openapi.TYPE_STRING, format=openapi.FORMAT_DATE),
+                        "execution_id": openapi.Schema(type=openapi.TYPE_STRING, format=openapi.FORMAT_UUID),
                     },
                 ),
             )
@@ -460,16 +461,43 @@ class V2ClassificationRange(_V2BaseView):
         if error_response is not None: return error_response
 
         try:
+            execution_id = validated_data.get("execution_id")
+            logger.info(
+                "[RANGE_CLASSIFICATION_API] executionId=%s event=request_received unitId=%s referencePeriod=%s",
+                execution_id or "none",
+                validated_data["unidade_id"],
+                validated_data.get("reference_period") or "yesterday",
+            )
             result = ClassificationRangeService().processar(
                 validated_data["unidade_id"],
                 validated_data.get("reference_period"),
+                execution_id,
+            )
+            logger.info(
+                "[RANGE_CLASSIFICATION_API] executionId=%s event=request_completed unitId=%s status=200",
+                execution_id or "none",
+                validated_data["unidade_id"],
             )
             return JsonResponse(result, status=status.HTTP_200_OK)
             
         except (ExternalDataNotFoundError, ExternalDeviceNotFoundError) as exc:
+            logger.warning(
+                "[RANGE_CLASSIFICATION_API] executionId=%s event=request_failed status=404 error=%s",
+                validated_data.get("execution_id") or "none",
+                exc,
+            )
             return JsonResponse({"error": str(exc)}, status=status.HTTP_404_NOT_FOUND)
         except ValueError as exc:
+            logger.warning(
+                "[RANGE_CLASSIFICATION_API] executionId=%s event=request_failed status=422 error=%s",
+                validated_data.get("execution_id") or "none",
+                exc,
+            )
             return JsonResponse({"error": str(exc)}, status=status.HTTP_422_UNPROCESSABLE_ENTITY)
         except Exception as exc:
-            logger.exception("Erro interno: %s", exc)
+            logger.exception(
+                "[RANGE_CLASSIFICATION_API] executionId=%s event=request_failed status=500 error=%s",
+                validated_data.get("execution_id") or "none",
+                exc,
+            )
             return JsonResponse({"error": "Erro interno."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

@@ -1,5 +1,6 @@
 from datetime import date
 from unittest.mock import patch
+from uuid import UUID
 
 import pandas as pd
 
@@ -547,13 +548,19 @@ class ClassificationRangeAPITests(APITestCase):
         self.client.force_authenticate(user=self.user)
 
     def test_v2_classification_range_returns_true(self):
-        payload = {"unidade_id": 10, "reference_period": "2026-07-27"}
+        execution_id = "d7d746c8-c95f-4cb0-b004-dc4995f5ef56"
+        payload = {
+            "unidade_id": 10,
+            "reference_period": "2026-07-27",
+            "execution_id": execution_id,
+        }
         service_result = {
             "outside_green_range": True,
             "severity": "critical",
             "classification": 2,
             "classification_label": "Consumo Excessivo",
             "reference_period": "2026-07-27",
+            "execution_id": execution_id,
         }
         with patch("appSM.api.views.ClassificationRangeService") as mock_service_cls:
             mock_service = mock_service_cls.return_value
@@ -562,7 +569,11 @@ class ClassificationRangeAPITests(APITestCase):
             response = self.client.post(reverse("v2-classification-range"), payload, format="json")
             self.assertEqual(response.status_code, 200)
             self.assertEqual(response.json(), service_result)
-            mock_service.processar.assert_called_once_with(10, date(2026, 7, 27))
+            mock_service.processar.assert_called_once_with(
+                10,
+                date(2026, 7, 27),
+                UUID(execution_id),
+            )
 
     def test_v2_classification_range_returns_false(self):
         payload = {"unidade_id": 10}
@@ -580,7 +591,7 @@ class ClassificationRangeAPITests(APITestCase):
             response = self.client.post(reverse("v2-classification-range"), payload, format="json")
             self.assertEqual(response.status_code, 200)
             self.assertEqual(response.json(), service_result)
-            mock_service.processar.assert_called_once_with(10, None)
+            mock_service.processar.assert_called_once_with(10, None, None)
 
     def test_v2_classification_range_no_data(self):
         payload = {"unidade_id": 10}
