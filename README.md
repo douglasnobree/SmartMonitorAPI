@@ -212,7 +212,7 @@ Utiliza modelos locais personalizados treinados por cliente na camada de domíni
    - **Faixa superior 1** (acima)
    - **Faixa superior 2** (muito acima)
 
-## 📁 Estrutura do Projeto (Clean Architecture)
+## 📁 Estrutura do Projeto (Arquitetura modular)
 
 A aplicação segue uma separação rigorosa de responsabilidades por camadas modulares:
 
@@ -247,7 +247,7 @@ SmartMonitorAPI/
 
 ## 🔄 Status de Validação
 
-- [x] **Arquitetura Orientada a Camadas**: Migração para Clean Architecture (`api`, `services`, `domain`, `infrastructure`).
+- [x] **Arquitetura Orientada a Camadas**: Migração para arquitetura modular adaptada (`api`, `services`, `domain`, `infrastructure`).
 - [x] **Suíte de Testes Automatizados 100% Verde**: Testes unitários da API V2 e de caracterização cobrendo regressão linear, preenchimento de mediana e agregação sem perdas e sem endpoints legados obsoletos.
 - [ ] **Análise de Qualidade de Água**: Expansão para métricas adicionais de qualidade (além do pH).
 - [ ] **Métricas de Performance**: Dashboard de monitoramento de API.

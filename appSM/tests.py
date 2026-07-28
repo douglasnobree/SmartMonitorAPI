@@ -538,4 +538,51 @@ class PredictionAndAnalysisAPITests(APITestCase):
         self.assertIn("arquivo ausente", body["detail"])
 
 
+class ClassificationRangeAPITests(APITestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(
+            username="api_tester2",
+            password="strong-password-123",
+        )
+        self.client.force_authenticate(user=self.user)
+
+    def _test_classification_value(self, classification_value, expected_outside):
+        payload = {"unidade_id": 10}
+        with patch("appSM.api.views.ClassificationHistoryService") as mock_service_cls:
+            mock_service = mock_service_cls.return_value
+            mock_service.processar.return_value = {
+                "results": [{"periodo": "27/07/2026", "consumo": 12.0, "classificacao": classification_value}]
+            }
+            
+            response = self.client.post(reverse("v2-classification-range"), payload, format="json")
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(response.json(), {"outside_green_range": expected_outside})
+
+    def test_v2_classification_range_returns_true_for_minus_2(self):
+        self._test_classification_value(-2, True)
+
+    def test_v2_classification_range_returns_false_for_minus_1(self):
+        self._test_classification_value(-1, False)
+
+    def test_v2_classification_range_returns_false_for_0(self):
+        self._test_classification_value(0, False)
+
+    def test_v2_classification_range_returns_true_for_1(self):
+        self._test_classification_value(1, True)
+
+    def test_v2_classification_range_returns_true_for_2(self):
+        self._test_classification_value(2, True)
+
+    def test_v2_classification_range_no_data(self):
+        payload = {"unidade_id": 10}
+        with patch("appSM.api.views.ClassificationHistoryService") as mock_service_cls:
+            mock_service = mock_service_cls.return_value
+            from appSM.infrastructure.db_fetcher import ExternalDataNotFoundError
+            mock_service.processar.side_effect = ExternalDataNotFoundError("Nenhum registro encontrado no periodo solicitado")
+            
+            response = self.client.post(reverse("v2-classification-range"), payload, format="json")
+            self.assertEqual(response.status_code, 404)
+            self.assertEqual(response.json(), {"error": "Nenhum registro encontrado no periodo solicitado"})
+
+
 from .test_characterization import *

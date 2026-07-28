@@ -1,5 +1,6 @@
 import logging
 import json
+import pandas as pd
 
 from drf_yasg import openapi
 from drf_yasg.utils import swagger_auto_schema
@@ -16,7 +17,7 @@ from appSM.infrastructure.db_fetcher import (
     ExternalDataNotFoundError,
     ExternalDeviceNotFoundError,
 )
-from appSM.api.serializers import V2ClassificationHistorySerializer, V2DailySerializer, V2MonthlySerializer
+from appSM.api.serializers import V2ClassificationHistorySerializer, V2DailySerializer, V2MonthlySerializer, V2ClassificationRangeSerializer
 from appSM.services import (
     ClassificationHistoryService,
     AnaliseEstatisticaService,
@@ -430,3 +431,55 @@ class ClassificacaoPH(APIView):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
+
+class V2ClassificationRange(_V2BaseView):
+    serializer_class = V2ClassificationRangeSerializer
+
+    @swagger_auto_schema(
+        operation_summary="[v2] Verificacao de alerta para consumo fora da faixa verde (dia anterior)",
+        request_body=V2ClassificationRangeSerializer,
+        responses={
+            200: openapi.Response(
+                "Resultado da verificacao",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        "outside_green_range": openapi.Schema(type=openapi.TYPE_BOOLEAN),
+                    },
+                ),
+            )
+        }
+    )
+    def post(self, request):
+        validated_data, error_response = self._validate_payload(request)
+        if error_response is not None: return error_response
+
+        try:
+            ontem = (pd.Timestamp.now().normalize() - pd.Timedelta(days=1)).date()
+            
+            validated_data_history = {
+                "type": "daily",
+                "unidade_id": validated_data["unidade_id"],
+                "data_inicio": ontem,
+                "data_fim": ontem,
+            }
+            
+            resultado = ClassificationHistoryService().processar(validated_data_history)
+            
+            results = resultado.get("results", [])
+            if not results:
+                raise ExternalDataNotFoundError("Nenhum registro encontrado no periodo solicitado")
+                
+            ultima_classificacao = results[-1].get("classificacao")
+            
+            outside = ultima_classificacao in [-2, 1, 2]
+            
+            return JsonResponse({"outside_green_range": outside}, status=status.HTTP_200_OK)
+            
+        except (ExternalDataNotFoundError, ExternalDeviceNotFoundError) as exc:
+            return JsonResponse({"error": str(exc)}, status=status.HTTP_404_NOT_FOUND)
+        except ValueError as exc:
+            return JsonResponse({"error": str(exc)}, status=status.HTTP_422_UNPROCESSABLE_ENTITY)
+        except Exception as exc:
+            logger.exception("Erro interno: %s", exc)
+            return JsonResponse({"error": "Erro interno."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

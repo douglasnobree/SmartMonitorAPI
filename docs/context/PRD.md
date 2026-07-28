@@ -42,6 +42,7 @@ Disponibilizar serviços de predição de consumo, classificação estatística 
 - **RF-007:** Avaliar status físico-químico da água em fluxos customizados de cliente (`/classify/ph`).
 - **RF-008:** Disponibilizar emissão segura do par access/refresh de tokens (`/token`).
 - **RF-009:** Computar e entregar históricos agregados e séries temporais customizadas em lotes para faturamento (`/v2/classification/history`).
+- **RF-010:** Verificar se o consumo do dia anterior saiu da faixa verde de normalidade para fins de alertas no backend principal (`/v2/classification/range`).
 
 ## Requisitos Não Funcionais
 - **RNF-001:** Desenvolvido em Python 3.11 sob Django e DRF, operando sobre uma divisão arquitetural de 4 camadas orientadas a domínio (*Clean Architecture*).
