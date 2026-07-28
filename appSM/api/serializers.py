@@ -59,3 +59,4 @@ class V2ClassificationHistorySerializer(serializers.Serializer):
 class V2ClassificationRangeSerializer(serializers.Serializer):
     """Payload para verificação se o consumo da unidade no dia anterior saiu da faixa verde."""
     unidade_id = serializers.IntegerField(min_value=1)
+    reference_period = serializers.DateField(required=False)

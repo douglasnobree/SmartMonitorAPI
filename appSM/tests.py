@@ -547,24 +547,40 @@ class ClassificationRangeAPITests(APITestCase):
         self.client.force_authenticate(user=self.user)
 
     def test_v2_classification_range_returns_true(self):
-        payload = {"unidade_id": 10}
+        payload = {"unidade_id": 10, "reference_period": "2026-07-27"}
+        service_result = {
+            "outside_green_range": True,
+            "severity": "critical",
+            "classification": 2,
+            "classification_label": "Consumo Excessivo",
+            "reference_period": "2026-07-27",
+        }
         with patch("appSM.api.views.ClassificationRangeService") as mock_service_cls:
             mock_service = mock_service_cls.return_value
-            mock_service.processar.return_value = True
+            mock_service.processar.return_value = service_result
             
             response = self.client.post(reverse("v2-classification-range"), payload, format="json")
             self.assertEqual(response.status_code, 200)
-            self.assertEqual(response.json(), {"outside_green_range": True})
+            self.assertEqual(response.json(), service_result)
+            mock_service.processar.assert_called_once_with(10, date(2026, 7, 27))
 
     def test_v2_classification_range_returns_false(self):
         payload = {"unidade_id": 10}
+        service_result = {
+            "outside_green_range": False,
+            "severity": "green",
+            "classification": 0,
+            "classification_label": "Consumo Moderado",
+            "reference_period": "2026-07-27",
+        }
         with patch("appSM.api.views.ClassificationRangeService") as mock_service_cls:
             mock_service = mock_service_cls.return_value
-            mock_service.processar.return_value = False
+            mock_service.processar.return_value = service_result
             
             response = self.client.post(reverse("v2-classification-range"), payload, format="json")
             self.assertEqual(response.status_code, 200)
-            self.assertEqual(response.json(), {"outside_green_range": False})
+            self.assertEqual(response.json(), service_result)
+            mock_service.processar.assert_called_once_with(10, None)
 
     def test_v2_classification_range_no_data(self):
         payload = {"unidade_id": 10}
@@ -579,7 +595,7 @@ class ClassificationRangeAPITests(APITestCase):
 
 
 class ClassificationRangeServiceTests(SimpleTestCase):
-    def _test_classification_value(self, classification_value, expected_outside):
+    def _test_classification_value(self, classification_value, expected_outside, expected_severity):
         from appSM.services.classification_range_service import ClassificationRangeService
         with patch("appSM.services.classification_range_service.ClassificationHistoryService") as mock_history_cls:
             mock_history = mock_history_cls.return_value
@@ -588,29 +604,33 @@ class ClassificationRangeServiceTests(SimpleTestCase):
             }
             
             service = ClassificationRangeService()
-            resultado = service.processar(10)
+            resultado = service.processar(10, date(2026, 7, 27))
             
-            self.assertEqual(resultado, expected_outside)
+            self.assertEqual(resultado["outside_green_range"], expected_outside)
+            self.assertEqual(resultado["severity"], expected_severity)
+            self.assertEqual(resultado["classification"], classification_value)
+            self.assertEqual(resultado["reference_period"], "2026-07-27")
             mock_history.processar.assert_called_once()
             args = mock_history.processar.call_args[0][0]
             self.assertEqual(args["type"], "daily")
             self.assertEqual(args["unidade_id"], 10)
-            self.assertEqual(args["data_inicio"], args["data_fim"])
+            self.assertEqual(args["data_inicio"], date(2026, 7, 27))
+            self.assertEqual(args["data_fim"], date(2026, 7, 27))
 
     def test_classification_minus_2(self):
-        self._test_classification_value(-2, True)
+        self._test_classification_value(-2, True, "critical")
 
     def test_classification_minus_1(self):
-        self._test_classification_value(-1, False)
+        self._test_classification_value(-1, False, "green")
 
     def test_classification_0(self):
-        self._test_classification_value(0, False)
+        self._test_classification_value(0, False, "green")
 
     def test_classification_1(self):
-        self._test_classification_value(1, True)
+        self._test_classification_value(1, True, "warning")
 
     def test_classification_2(self):
-        self._test_classification_value(2, True)
+        self._test_classification_value(2, True, "critical")
 
     def test_no_data_raises_error(self):
         from appSM.services.classification_range_service import ClassificationRangeService

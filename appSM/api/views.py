@@ -446,6 +446,10 @@ class V2ClassificationRange(_V2BaseView):
                     type=openapi.TYPE_OBJECT,
                     properties={
                         "outside_green_range": openapi.Schema(type=openapi.TYPE_BOOLEAN),
+                        "severity": openapi.Schema(type=openapi.TYPE_STRING),
+                        "classification": openapi.Schema(type=openapi.TYPE_INTEGER),
+                        "classification_label": openapi.Schema(type=openapi.TYPE_STRING),
+                        "reference_period": openapi.Schema(type=openapi.TYPE_STRING, format=openapi.FORMAT_DATE),
                     },
                 ),
             )
@@ -456,8 +460,11 @@ class V2ClassificationRange(_V2BaseView):
         if error_response is not None: return error_response
 
         try:
-            outside = ClassificationRangeService().processar(validated_data["unidade_id"])
-            return JsonResponse({"outside_green_range": outside}, status=status.HTTP_200_OK)
+            result = ClassificationRangeService().processar(
+                validated_data["unidade_id"],
+                validated_data.get("reference_period"),
+            )
+            return JsonResponse(result, status=status.HTTP_200_OK)
             
         except (ExternalDataNotFoundError, ExternalDeviceNotFoundError) as exc:
             return JsonResponse({"error": str(exc)}, status=status.HTTP_404_NOT_FOUND)
