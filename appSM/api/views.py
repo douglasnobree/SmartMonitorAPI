@@ -23,6 +23,7 @@ from appSM.services import (
     AnaliseEstatisticaService,
     PredicaoService,
     PHClassificationService,
+    ClassificationRangeService,
 )
 
 logger = logging.getLogger(__name__)
@@ -455,25 +456,7 @@ class V2ClassificationRange(_V2BaseView):
         if error_response is not None: return error_response
 
         try:
-            ontem = (pd.Timestamp.now().normalize() - pd.Timedelta(days=1)).date()
-            
-            validated_data_history = {
-                "type": "daily",
-                "unidade_id": validated_data["unidade_id"],
-                "data_inicio": ontem,
-                "data_fim": ontem,
-            }
-            
-            resultado = ClassificationHistoryService().processar(validated_data_history)
-            
-            results = resultado.get("results", [])
-            if not results:
-                raise ExternalDataNotFoundError("Nenhum registro encontrado no periodo solicitado")
-                
-            ultima_classificacao = results[-1].get("classificacao")
-            
-            outside = ultima_classificacao in [-2, 1, 2]
-            
+            outside = ClassificationRangeService().processar(validated_data["unidade_id"])
             return JsonResponse({"outside_green_range": outside}, status=status.HTTP_200_OK)
             
         except (ExternalDataNotFoundError, ExternalDeviceNotFoundError) as exc:

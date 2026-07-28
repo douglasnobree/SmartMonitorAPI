@@ -546,36 +546,29 @@ class ClassificationRangeAPITests(APITestCase):
         )
         self.client.force_authenticate(user=self.user)
 
-    def _test_classification_value(self, classification_value, expected_outside):
+    def test_v2_classification_range_returns_true(self):
         payload = {"unidade_id": 10}
-        with patch("appSM.api.views.ClassificationHistoryService") as mock_service_cls:
+        with patch("appSM.api.views.ClassificationRangeService") as mock_service_cls:
             mock_service = mock_service_cls.return_value
-            mock_service.processar.return_value = {
-                "results": [{"periodo": "27/07/2026", "consumo": 12.0, "classificacao": classification_value}]
-            }
+            mock_service.processar.return_value = True
             
             response = self.client.post(reverse("v2-classification-range"), payload, format="json")
             self.assertEqual(response.status_code, 200)
-            self.assertEqual(response.json(), {"outside_green_range": expected_outside})
+            self.assertEqual(response.json(), {"outside_green_range": True})
 
-    def test_v2_classification_range_returns_true_for_minus_2(self):
-        self._test_classification_value(-2, True)
-
-    def test_v2_classification_range_returns_false_for_minus_1(self):
-        self._test_classification_value(-1, False)
-
-    def test_v2_classification_range_returns_false_for_0(self):
-        self._test_classification_value(0, False)
-
-    def test_v2_classification_range_returns_true_for_1(self):
-        self._test_classification_value(1, True)
-
-    def test_v2_classification_range_returns_true_for_2(self):
-        self._test_classification_value(2, True)
+    def test_v2_classification_range_returns_false(self):
+        payload = {"unidade_id": 10}
+        with patch("appSM.api.views.ClassificationRangeService") as mock_service_cls:
+            mock_service = mock_service_cls.return_value
+            mock_service.processar.return_value = False
+            
+            response = self.client.post(reverse("v2-classification-range"), payload, format="json")
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(response.json(), {"outside_green_range": False})
 
     def test_v2_classification_range_no_data(self):
         payload = {"unidade_id": 10}
-        with patch("appSM.api.views.ClassificationHistoryService") as mock_service_cls:
+        with patch("appSM.api.views.ClassificationRangeService") as mock_service_cls:
             mock_service = mock_service_cls.return_value
             from appSM.infrastructure.db_fetcher import ExternalDataNotFoundError
             mock_service.processar.side_effect = ExternalDataNotFoundError("Nenhum registro encontrado no periodo solicitado")
@@ -583,6 +576,52 @@ class ClassificationRangeAPITests(APITestCase):
             response = self.client.post(reverse("v2-classification-range"), payload, format="json")
             self.assertEqual(response.status_code, 404)
             self.assertEqual(response.json(), {"error": "Nenhum registro encontrado no periodo solicitado"})
+
+
+class ClassificationRangeServiceTests(SimpleTestCase):
+    def _test_classification_value(self, classification_value, expected_outside):
+        from appSM.services.classification_range_service import ClassificationRangeService
+        with patch("appSM.services.classification_range_service.ClassificationHistoryService") as mock_history_cls:
+            mock_history = mock_history_cls.return_value
+            mock_history.processar.return_value = {
+                "results": [{"periodo": "27/07/2026", "consumo": 12.0, "classificacao": classification_value}]
+            }
+            
+            service = ClassificationRangeService()
+            resultado = service.processar(10)
+            
+            self.assertEqual(resultado, expected_outside)
+            mock_history.processar.assert_called_once()
+            args = mock_history.processar.call_args[0][0]
+            self.assertEqual(args["type"], "daily")
+            self.assertEqual(args["unidade_id"], 10)
+            self.assertEqual(args["data_inicio"], args["data_fim"])
+
+    def test_classification_minus_2(self):
+        self._test_classification_value(-2, True)
+
+    def test_classification_minus_1(self):
+        self._test_classification_value(-1, False)
+
+    def test_classification_0(self):
+        self._test_classification_value(0, False)
+
+    def test_classification_1(self):
+        self._test_classification_value(1, True)
+
+    def test_classification_2(self):
+        self._test_classification_value(2, True)
+
+    def test_no_data_raises_error(self):
+        from appSM.services.classification_range_service import ClassificationRangeService
+        with patch("appSM.services.classification_range_service.ClassificationHistoryService") as mock_history_cls:
+            mock_history = mock_history_cls.return_value
+            mock_history.processar.return_value = {"results": []}
+            
+            service = ClassificationRangeService()
+            from appSM.infrastructure.db_fetcher import ExternalDataNotFoundError
+            with self.assertRaises(ExternalDataNotFoundError):
+                service.processar(10)
 
 
 from .test_characterization import *
