@@ -593,6 +593,16 @@ class ClassificationRangeAPITests(APITestCase):
             self.assertEqual(response.status_code, 404)
             self.assertEqual(response.json(), {"error": "Nenhum registro encontrado no periodo solicitado"})
 
+    def test_v2_classification_range_rejects_invalid_reference_period(self):
+        response = self.client.post(
+            reverse("v2-classification-range"),
+            {"unidade_id": 10, "reference_period": "27/07/2026"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 422)
+        self.assertIn("reference_period", response.json()["details"])
+
 
 class ClassificationRangeServiceTests(SimpleTestCase):
     def _test_classification_value(self, classification_value, expected_outside, expected_severity):
@@ -642,6 +652,17 @@ class ClassificationRangeServiceTests(SimpleTestCase):
             from appSM.infrastructure.db_fetcher import ExternalDataNotFoundError
             with self.assertRaises(ExternalDataNotFoundError):
                 service.processar(10)
+
+    def test_invalid_classification_raises_error(self):
+        from appSM.services.classification_range_service import ClassificationRangeService
+        with patch("appSM.services.classification_range_service.ClassificationHistoryService") as mock_history_cls:
+            mock_history = mock_history_cls.return_value
+            mock_history.processar.return_value = {
+                "results": [{"periodo": "27/07/2026", "consumo": 12.0, "classificacao": 3}]
+            }
+
+            with self.assertRaisesRegex(ValueError, "fora do intervalo esperado"):
+                ClassificationRangeService().processar(10, date(2026, 7, 27))
 
 
 from .test_characterization import *

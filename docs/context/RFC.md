@@ -41,7 +41,7 @@ Tabela oficial de endpoints ativos na versão 2:
 | `/v2/statistic/monthly` | POST | Classificação mensal | `unidade_id`, `dispositivo_id?` | `{Data, Consumo, classificacao}` | 400, 401, 404, 422, 500 | `ExternalDataFetcher`, `AnaliseEstatisticaService` | Consulta ao banco externo |
 | `/v2/statistic/data` | POST | Dados completos de Bollinger | `sensor_id` | `{dados: [..]}` | 400, 401, 404, 422, 500 | `ExternalDataFetcher`, `AnaliseEstatisticaService` | Consulta ao banco externo |
 | `/v2/classification/history`| POST| Histórico temporal | `type` (daily/monthly), `unidade_id`, `data_inicio`, `data_fim` ou `ano`| `{results: [...]}` | 400, 401, 404, 422, 500 | `ClassificationHistoryService`, `ExternalDataFetcher`| Processa contexto anterior e recorta período de saída |
-| `/v2/classification/range` | POST | Alerta (dia anterior) | `unidade_id` | `{outside_green_range}` | 400, 401, 404, 422, 500 | `ClassificationHistoryService` | Processa dia anterior e verifica faixas -2, 1, 2 |
+| `/v2/classification/range` | POST | Alerta de faixa por período | `unidade_id`, `reference_period?` | `{outside_green_range, severity, classification, classification_label, reference_period}` | 400, 401, 404, 422, 500 | `ClassificationHistoryService` | Processa o período informado, ou o dia anterior, e verifica faixas -2, 1, 2 |
 | `/classify/ph` | POST | Qualidade e pH | `client_id`, `ph_value` | `{client_id, ph_value, classification, ...}` | 400, 401, 404, 422, 500 | `PHClassificationService` | Carrega modelo `.joblib` em disco |
 | `/swagger` | GET | Swagger UI | - | Documentação UI | - | drf-yasg | Nenhum |
 | `/redoc` | GET | Redoc UI | - | Documentação UI | - | drf-yasg | Nenhum |
