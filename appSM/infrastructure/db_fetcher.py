@@ -1,6 +1,7 @@
 import logging
 from decouple import config
 from typing import Optional
+from zoneinfo import ZoneInfo
 
 import pandas as pd
 from sqlalchemy import create_engine, text
@@ -8,6 +9,11 @@ from sqlalchemy.exc import SQLAlchemyError
 
 
 logger = logging.getLogger(__name__)
+REPORT_TIME_ZONE = ZoneInfo(config("REPORT_TIME_ZONE", default="America/Fortaleza"))
+
+
+def _local_today() -> pd.Timestamp:
+    return pd.Timestamp.now(tz=REPORT_TIME_ZONE).tz_localize(None).normalize()
 
 
 class ExternalDataNotFoundError(LookupError):
@@ -44,7 +50,7 @@ class ExternalDataFetcher:
 
     def fetch_daily_history(self, sensor_id: str) -> pd.DataFrame:
         """Busca o histórico diário (45 dias incluindo hoje) agregado por sensor na tabela SensorData."""
-        hoje = pd.Timestamp.now().normalize()
+        hoje = _local_today()
         inicio = hoje - pd.Timedelta(days=44) # 44 dias atrás + hoje = 45 dias
         fim_exclusivo = hoje + pd.Timedelta(days=1)
 
@@ -97,7 +103,7 @@ class ExternalDataFetcher:
         if dispositivo_id is not None:
             dia_inicio_ciclo = self._fetch_dia_inicio_ciclo(dispositivo_id)
             
-        hoje = pd.Timestamp.now().normalize()
+        hoje = _local_today()
         
         # Identifica o início do ciclo de faturamento atual
         if hoje.day >= dia_inicio_ciclo:

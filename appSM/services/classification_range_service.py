@@ -1,5 +1,6 @@
-from datetime import date, timedelta
+from datetime import timedelta
 import logging
+from django.utils import timezone
 from appSM.services.classification_history_service import ClassificationHistoryService
 from appSM.infrastructure.db_fetcher import ExternalDataNotFoundError
 
@@ -35,7 +36,7 @@ class ClassificationRangeService:
     }
 
     def processar(self, unidade_id: int, reference_period=None, execution_id=None) -> dict:
-        target_date = reference_period or date.today() - timedelta(days=1)
+        target_date = reference_period or timezone.localdate() - timedelta(days=1)
         flow_id = str(execution_id) if execution_id else "none"
         logger.info(
             "[RANGE_CLASSIFICATION_API] executionId=%s event=analysis_started unitId=%s referencePeriod=%s",
