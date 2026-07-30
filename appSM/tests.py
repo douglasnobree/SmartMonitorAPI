@@ -190,6 +190,21 @@ class AnaliseEstatisticaServiceTests(SimpleTestCase):
         self.assertIn("Média Móvel", primeiro)
         self.assertIn("Desvio Padrão", primeiro)
 
+    def test_obter_dados_completos_preserva_consumo_original_de_outlier(self):
+        """As bandas podem tratar outliers, mas a série exibida deve manter a medição real."""
+        historico = {
+            f"{day:02d}/07/2026": 18.0 if day == 15 else 4.0 + (day % 2) * 0.5
+            for day in range(1, 31)
+        }
+
+        resultado = AnaliseEstatisticaService(janela=30).obterDadosCompletos(
+            historico
+        )
+        dia_15 = next(item for item in resultado if item["Data"] == "15/07/2026")
+
+        self.assertEqual(float(dia_15["Consumo"]), 18.0)
+        self.assertLess(float(dia_15["Média Móvel"]), 18.0)
+
     def test_processar_dados_vazio_gera_value_error(self):
         """Cenário: a análise recebe um payload vazio.
         Resultado esperado: o serviço rejeita a requisição com ValueError."""

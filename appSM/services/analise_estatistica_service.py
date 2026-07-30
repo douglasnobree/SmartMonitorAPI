@@ -157,6 +157,7 @@ class AnaliseEstatisticaService:
                 dados_request,
                 frequencia=self._definir_frequencia()
             )
+            consumo_original = df["Consumo"].copy()
             
             logger.debug(f"DataFrame criado com {len(df)} registros para dados completos")
 
@@ -165,6 +166,10 @@ class AnaliseEstatisticaService:
             
             # Calcular bandas de Bollinger
             df = self._calcular_bandas(df)
+
+            # As bandas usam a série higienizada, mas o gráfico deve sempre
+            # exibir o consumo realmente medido.
+            df["Consumo"] = consumo_original
             
             # Preencher valores nulos (sem classificação)
             df = self._preencher_nulos(df, incluir_classificacao=False)
