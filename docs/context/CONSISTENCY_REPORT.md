@@ -9,7 +9,7 @@
 - **Zero contradições** identificadas nas especificações. As dependências e contratos de chamadas na camada REST relatam precisamente a busca *lazy* na infraestrutura SQL e os pré-processamentos sem round-trip intermediário de dicionários em [appSM/services](file:///C:/Projetos/SmartMonitorAPI/appSM/services) e [appSM/domain](file:///C:/Projetos/SmartMonitorAPI/appSM/domain).
 
 ## Alterações de Dívida Técnica Resolvidas
-- Os arquivos e contratos obsoletos presentes nos antigos relatórios de contradição (`views_deprecated.py`, interfaces não utilizadas e instanciamentos antecipados do SQLAlchemy) foram integralmente extintos e substituídos por padrões limpos de Clean Architecture com o aval e blindagem da suíte de teste de caracterização (Fase 2 -> 5).
+- Os arquivos e contratos obsoletos presentes nos antigos relatórios de contradição (`views_deprecated.py`, interfaces não utilizadas e instanciamentos antecipados do SQLAlchemy) foram integralmente extintos e substituídos por padrões limpos de Arquitetura Modular com o aval e blindagem da suíte de teste de caracterização (Fase 2 -> 5).
 - A separação entre regras computacionais/estatísticas puras de negócio e as orquestrações de caso de uso (serviços) encontra-se estritamente delimitada e aderente às definições propostas pelo **ADR-006**.
 
 ## Estado de Prontidão do Contexto

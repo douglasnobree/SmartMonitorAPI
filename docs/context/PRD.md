@@ -1,7 +1,7 @@
 # PRD - SmartMonitor API (v2)
 
 ## Contexto
-API REST para análise de consumo de água e classificação de qualidade (pH) usando Machine Learning e análise estatística. Atua sob princípios de Clean Architecture integrada de forma segura a um banco de dados externo e é consumida por uma API backend principal que expõe resultados no frontend. [Fonte: README]
+API REST para análise de consumo de água e classificação de qualidade (pH) usando Machine Learning e análise estatística. Atua sob princípios de Arquitetura Modular integrada de forma segura a um banco de dados externo e é consumida por uma API backend principal que expõe resultados no frontend. [Fonte: README]
 
 ## Problema resolvido
 Disponibilizar serviços de predição de consumo, classificação estatística de Bollinger e classificação de qualidade de pH via endpoints HTTP REST performáticos e autenticados de forma escalável (Versão 2). [Fonte: README][Fonte: codigo]
@@ -45,7 +45,7 @@ Disponibilizar serviços de predição de consumo, classificação estatística 
 - **RF-010:** Verificar se o consumo do dia anterior saiu da faixa verde de normalidade para fins de alertas no backend principal (`/v2/classification/range`).
 
 ## Requisitos Não Funcionais
-- **RNF-001:** Desenvolvido em Python 3.11 sob Django e DRF, operando sobre uma divisão arquitetural de 4 camadas orientadas a domínio (*Clean Architecture*).
+- **RNF-001:** Desenvolvido em Python 3.11 sob Django e DRF, operando sobre uma divisão arquitetural de 4 camadas orientadas a domínio (*Arquitetura Modular*).
 - **RNF-002:** Interface auto-explicativa com contratos OpenAPI atualizados interativamente em `/swagger` e `/redoc`.
 - **RNF-003:** Sistema confiável de logging configurado enquadrando a camada `appSM.services` a saídas segregadas e rotativas (`smartmonitor.log`, `errors.log`).
 - **RNF-004:** Otimização computacional em memória através do processamento nativo e ininterrupto por `pandas.DataFrame`, evadiendo reconversões inter-camadas perdas por serializações em strings/dicts de Python.

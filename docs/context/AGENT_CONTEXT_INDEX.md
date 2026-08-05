@@ -1,7 +1,7 @@
 # Agent Context Index
 
 ## Sistema
-API REST Django para predição de consumo, análise estatística e classificação de pH, consumida por outro backend, reestruturada sob os princípios de Clean Architecture. [Fonte: README]
+API REST Django para predição de consumo, análise estatística e classificação de pH, consumida por outro backend, reestruturada sob os princípios de Arquitura Modular. [Fonte: README]
 
 ## Componentes (Arquitetura em Camadas)
 - Camada de Apresentação (API): [projectSM/urls.py](projectSM/urls.py), [appSM/api/views.py](appSM/api/views.py) e [appSM/api/serializers.py](appSM/api/serializers.py)

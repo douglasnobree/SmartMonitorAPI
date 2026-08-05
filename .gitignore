@@ -57,3 +57,6 @@ models/saved/
 docs/_build/
 site/
 docsmd/
+
+# Graphify
+graphify-out/

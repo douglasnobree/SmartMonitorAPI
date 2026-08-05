@@ -6,7 +6,7 @@ API REST Django modular para análise de consumo de água e classificação de q
 ## Arquitetura Atual
 - **Framework:** Django 5.x + Django REST Framework + drf-yasg.
 - **Autenticação:** JWT via SimpleJWT com verificação no header `Authorization` (sem prefixo `Bearer`).
-- **Padrão de Arquitetura:** Clean Architecture em 4 camadas independentes sob o app principal (`api`, `services`, `domain`, `infrastructure`).
+- **Padrão de Arquitetura:** Arquitetura Modular em 4 camadas independentes sob o app principal (`api`, `services`, `domain`, `infrastructure`).
 - **Persistência de Negócio:** Operação *read-only* em banco externo SQL acessada por conectores com *Module-level Lazy Engine* em `infrastructure/db_fetcher.py`. SQLite mantido no projeto para tabelas administrativas e de controle do Django Admin.
 - **ML & Estatística:** Módulos matemáticos puros e composicionais com pandas e scikit-learn na camada `domain/`; modelos `.joblib` em disco.
 - **Fluxo de Dados Otimizado:** Passagem nativa de estruturas `pandas.DataFrame` end-to-end do banco de dados ao serviço de inferência sem round-trips para dicionários ou perdas temporais de indexação.
