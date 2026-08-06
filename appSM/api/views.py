@@ -12,19 +12,13 @@ from rest_framework.exceptions import ParseError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
 
-from appSM.infrastructure.db_fetcher import (
-    ExternalDataFetcher,
-    ExternalDataNotFoundError,
-    ExternalDeviceNotFoundError,
-)
 from appSM.api.serializers import V2ClassificationHistorySerializer, V2DailySerializer, V2MonthlySerializer, V2ClassificationRangeSerializer
-from appSM.services import (
-    ClassificationHistoryService,
-    AnaliseEstatisticaService,
-    PredicaoService,
-    PHClassificationService,
-    ClassificationRangeService,
-)
+from appSM.application.predicao_use_case import PredicaoUseCase
+from appSM.application.estatistica_use_case import EstatisticaUseCase
+from appSM.application.historico_use_case import HistoricoUseCase
+from appSM.application.range_use_case import RangeUseCase
+from appSM.application.exceptions import ConsumoNaoEncontrado, DispositivoNaoEncontrado
+from appSM.services.ph_classification_service import PHClassificationService
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +26,6 @@ logger = logging.getLogger(__name__)
 class _V2BaseView(APIView):
     permission_classes = [IsAuthenticated]
     serializer_class = None
-    is_monthly = False
 
     def _validate_payload(self, request):
         try:
@@ -44,19 +37,6 @@ class _V2BaseView(APIView):
         if not serializer.is_valid():
             return None, JsonResponse({"error": "Parâmetros inválidos", "details": serializer.errors}, status=status.HTTP_422_UNPROCESSABLE_ENTITY)
         return serializer.validated_data, None
-
-    def _fetch_history(self, validated_data):
-        fetcher = ExternalDataFetcher()
-        if self.is_monthly:
-            # Encaminha unidade_id e o dispositivo_id (caso tenha sido enviado)
-            return fetcher.fetch_monthly_history(
-                unidade_id=validated_data["unidade_id"],
-                dispositivo_id=validated_data.get("dispositivo_id")
-            )
-        else:
-            return fetcher.fetch_daily_history(
-                sensor_id=validated_data["sensor_id"]
-            )
 
 
 class V2PredicaoDiaria(_V2BaseView):
@@ -71,10 +51,9 @@ class V2PredicaoDiaria(_V2BaseView):
         if error_response is not None: return error_response
 
         try:
-            historico = self._fetch_history(validated_data)
-            resultado = PredicaoService(tipo="diaria").processarDados(historico)
+            resultado = PredicaoUseCase.diario(sensor_id=validated_data["sensor_id"])
             return JsonResponse({"Prediction": resultado}, status=status.HTTP_200_OK)
-        except ExternalDataNotFoundError as exc:
+        except ConsumoNaoEncontrado as exc:
             return JsonResponse({"error": str(exc)}, status=status.HTTP_404_NOT_FOUND)
         except Exception as exc:
             logger.exception("Erro interno: %s", exc)
@@ -83,7 +62,6 @@ class V2PredicaoDiaria(_V2BaseView):
 
 class V2PredicaoMensal(_V2BaseView):
     serializer_class = V2MonthlySerializer
-    is_monthly = True
 
     @swagger_auto_schema(
         operation_summary="[v2] Predição mensal por unidade",
@@ -94,10 +72,12 @@ class V2PredicaoMensal(_V2BaseView):
         if error_response is not None: return error_response
 
         try:
-            historico = self._fetch_history(validated_data)
-            resultado = PredicaoService(tipo="mensal").processarDados(historico)
+            resultado = PredicaoUseCase.mensal(
+                unidade_id=validated_data["unidade_id"],
+                dispositivo_id=validated_data.get("dispositivo_id")
+            )
             return JsonResponse({"Prediction": resultado}, status=status.HTTP_200_OK)
-        except ExternalDataNotFoundError as exc:
+        except (ConsumoNaoEncontrado, DispositivoNaoEncontrado) as exc:
             return JsonResponse({"error": str(exc)}, status=status.HTTP_404_NOT_FOUND)
         except Exception as exc:
             logger.exception("Erro interno: %s", exc)
@@ -116,10 +96,9 @@ class V2AnaliseEstatisticaDiaria(_V2BaseView):
         if error_response is not None: return error_response
 
         try:
-            historico = self._fetch_history(validated_data)
-            resultado = AnaliseEstatisticaService(janela=30).processarDados(historico)
+            resultado = EstatisticaUseCase.diario(sensor_id=validated_data["sensor_id"])
             return JsonResponse({"Data": resultado["Data"], "Consumo": resultado["Consumo"], "classificacao": resultado["Classificação"]}, status=status.HTTP_200_OK)
-        except ExternalDataNotFoundError as exc:
+        except ConsumoNaoEncontrado as exc:
             return JsonResponse({"error": str(exc)}, status=status.HTTP_404_NOT_FOUND)
         except Exception as exc:
             logger.exception("Erro interno: %s", exc)
@@ -128,7 +107,6 @@ class V2AnaliseEstatisticaDiaria(_V2BaseView):
 
 class V2AnaliseEstatisticaMensal(_V2BaseView):
     serializer_class = V2MonthlySerializer
-    is_monthly = True
 
     @swagger_auto_schema(
         operation_summary="[v2] Estatística mensal por unidade",
@@ -139,10 +117,12 @@ class V2AnaliseEstatisticaMensal(_V2BaseView):
         if error_response is not None: return error_response
 
         try:
-            historico = self._fetch_history(validated_data)
-            resultado = AnaliseEstatisticaService(janela=12).processarDados(historico)
+            resultado = EstatisticaUseCase.mensal(
+                unidade_id=validated_data["unidade_id"],
+                dispositivo_id=validated_data.get("dispositivo_id")
+            )
             return JsonResponse({"Data": resultado["Data"], "Consumo": resultado["Consumo"], "classificacao": resultado["Classificação"]}, status=status.HTTP_200_OK)
-        except ExternalDataNotFoundError as exc:
+        except (ConsumoNaoEncontrado, DispositivoNaoEncontrado) as exc:
             return JsonResponse({"error": str(exc)}, status=status.HTTP_404_NOT_FOUND)
         except Exception as exc:
             logger.exception("Erro interno: %s", exc)
@@ -150,7 +130,7 @@ class V2AnaliseEstatisticaMensal(_V2BaseView):
 
 
 class V2DadosBandas(_V2BaseView):
-    serializer_class = V2DailySerializer # Presumindo que bandas seja diária pelo sensor. Se for mensal, crie uma rota separada ou mude o serializer.
+    serializer_class = V2DailySerializer
 
     @swagger_auto_schema(
         operation_summary="[v2] Dados completos das bandas diárias",
@@ -161,10 +141,9 @@ class V2DadosBandas(_V2BaseView):
         if error_response is not None: return error_response
 
         try:
-            historico = self._fetch_history(validated_data)
-            dados = AnaliseEstatisticaService(janela=30).obterDadosCompletos(historico)
+            dados = EstatisticaUseCase.dados_completos(sensor_id=validated_data["sensor_id"])
             return JsonResponse({"dados": dados}, status=status.HTTP_200_OK)
-        except ExternalDataNotFoundError as exc:
+        except ConsumoNaoEncontrado as exc:
             return JsonResponse({"error": str(exc)}, status=status.HTTP_404_NOT_FOUND)
         except Exception as exc:
             logger.exception("Erro interno: %s", exc)
@@ -204,9 +183,9 @@ class V2ClassificationHistory(_V2BaseView):
         if error_response is not None: return error_response
 
         try:
-            resultado = ClassificationHistoryService().processar(validated_data)
+            resultado = HistoricoUseCase().processar(validated_data)
             return JsonResponse(resultado, status=status.HTTP_200_OK)
-        except (ExternalDataNotFoundError, ExternalDeviceNotFoundError) as exc:
+        except (ConsumoNaoEncontrado, DispositivoNaoEncontrado) as exc:
             return JsonResponse({"error": str(exc)}, status=status.HTTP_404_NOT_FOUND)
         except ValueError as exc:
             return JsonResponse({"error": str(exc)}, status=status.HTTP_422_UNPROCESSABLE_ENTITY)
@@ -468,7 +447,7 @@ class V2ClassificationRange(_V2BaseView):
                 validated_data["unidade_id"],
                 validated_data.get("reference_period") or "yesterday",
             )
-            result = ClassificationRangeService().processar(
+            result = RangeUseCase().processar(
                 validated_data["unidade_id"],
                 validated_data.get("reference_period"),
                 execution_id,
@@ -480,7 +459,7 @@ class V2ClassificationRange(_V2BaseView):
             )
             return JsonResponse(result, status=status.HTTP_200_OK)
             
-        except (ExternalDataNotFoundError, ExternalDeviceNotFoundError) as exc:
+        except (ConsumoNaoEncontrado, DispositivoNaoEncontrado) as exc:
             logger.warning(
                 "[RANGE_CLASSIFICATION_API] executionId=%s event=request_failed status=404 error=%s",
                 validated_data.get("execution_id") or "none",

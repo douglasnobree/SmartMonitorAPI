@@ -1,39 +1,15 @@
-from datetime import timedelta
 import logging
+from datetime import timedelta
 from django.utils import timezone
-from appSM.services.classification_history_service import ClassificationHistoryService
-from appSM.infrastructure.db_fetcher import ExternalDataNotFoundError
+from appSM.application.historico_use_case import HistoricoUseCase
+from appSM.application.exceptions import ConsumoNaoEncontrado
+from appSM.domain.classificador import FAIXAS_METADATA
 
 logger = logging.getLogger(__name__)
 
-class ClassificationRangeService:
-    CLASSIFICATION_METADATA = {
-        -2: {
-            "outside_green_range": True,
-            "severity": "critical",
-            "classification_label": "Consumo Muito Abaixo do Esperado",
-        },
-        -1: {
-            "outside_green_range": False,
-            "severity": "green",
-            "classification_label": "Uso Eficiente",
-        },
-        0: {
-            "outside_green_range": False,
-            "severity": "green",
-            "classification_label": "Consumo Moderado",
-        },
-        1: {
-            "outside_green_range": True,
-            "severity": "warning",
-            "classification_label": "Uso Elevado",
-        },
-        2: {
-            "outside_green_range": True,
-            "severity": "critical",
-            "classification_label": "Consumo Excessivo",
-        },
-    }
+class RangeUseCase:
+    def __init__(self, historico_use_case=None):
+        self.historico_use_case = historico_use_case or HistoricoUseCase()
 
     def processar(self, unidade_id: int, reference_period=None, execution_id=None) -> dict:
         target_date = reference_period or timezone.localdate() - timedelta(days=1)
@@ -52,11 +28,15 @@ class ClassificationRangeService:
             "data_fim": target_date,
         }
         
-        resultado = ClassificationHistoryService().processar(validated_data_history)
+        try:
+            resultado = self.historico_use_case.processar(validated_data_history)
+        except ConsumoNaoEncontrado as exc:
+            raise ConsumoNaoEncontrado("Nenhum registro encontrado no periodo solicitado") from exc
+            
         results = resultado.get("results", [])
         
         if not results:
-            raise ExternalDataNotFoundError("Nenhum registro encontrado no periodo solicitado")
+            raise ConsumoNaoEncontrado("Nenhum registro encontrado no periodo solicitado")
             
         classification = results[-1].get("classificacao")
 
@@ -65,7 +45,7 @@ class ClassificationRangeService:
         except (TypeError, ValueError) as exc:
             raise ValueError("Classificacao de consumo invalida") from exc
 
-        metadata = self.CLASSIFICATION_METADATA.get(normalized_classification)
+        metadata = FAIXAS_METADATA.get(normalized_classification)
         if metadata is None:
             raise ValueError("Classificacao de consumo fora do intervalo esperado")
 
