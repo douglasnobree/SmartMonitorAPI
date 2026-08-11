@@ -16,7 +16,7 @@ class PredicaoUseCase:
             df = ConsumoRepository().buscar_historico_diario(sensor_id)
         except DataNotFoundError as exc:
             raise ConsumoNaoEncontrado(str(exc)) from exc
-        return _executar_predicao(df, tipo="diaria", frequencia="diaria")
+        return _executar_predicao(df[-31:], tipo="diaria", frequencia="diaria")
 
     @staticmethod
     def mensal(unidade_id: int, dispositivo_id: Optional[str] = None) -> float:

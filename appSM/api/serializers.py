@@ -1,20 +1,7 @@
 from datetime import datetime
 from rest_framework import serializers
 
-class MySerializer(serializers.Serializer):
-    def to_internal_value(self, data):
-        """ Validação legado... """
-        if not isinstance(data, dict):
-            raise serializers.ValidationError("Os dados devem ser um dicionário.")
-        for key, value in data.items():
-            try:
-                datetime.strptime(key, '%d/%m/%Y')
-            except ValueError:
-                raise serializers.ValidationError(f"A chave '{key}' não está no formato DD/MM/YYYY.")
-            if value is not None and not isinstance(value, (float, int)):
-                raise serializers.ValidationError(f"O valor para a chave '{key}' deve ser um número ou null.")
-        return super().to_internal_value(data)
-        
+
 class V2DailySerializer(serializers.Serializer):
     """Payload para análises diárias baseadas no sensor."""
     sensor_id = serializers.CharField(max_length=11)

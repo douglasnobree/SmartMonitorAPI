@@ -41,6 +41,8 @@ class LinearRegressionAcumulado:
         df['Acumulado'] = df['Consumo'].cumsum()
         df.reset_index(inplace=True, drop=True)
         
+        print(df)
+        
         # Treinar modelo de regressão linear
         x = np.arange(len(df)).reshape(-1, 1)
         y = np.array(df['Acumulado'])
@@ -89,6 +91,8 @@ class LinearRegressionAcumulado:
                     resultado = proximo_acumulado - acumulado_atual
                 
                 # Garantir que não seja negativo
+                print(f"Tipo de predição: {self.tipo_predicao}, Proximo acumulado: {proximo_acumulado}, Acumulado atual: {acumulado_atual}")
+                print(n_passos, proximo_acumulado, acumulado_atual, resultado)
                 return max(resultado, 0)
             
             case 'mensal':
@@ -112,22 +116,3 @@ class LinearRegressionAcumulado:
                 # Caso padrão: qualquer outro tipo retorna predição simples
                 return proximo_acumulado - acumulado_atual
     
-    # Métodos legados para compatibilidade (deprecated)
-    def train(self, data: pd.DataFrame) -> None:
-        """Método legado. Use treinar() ao invés."""
-        self.treinar(data)
-    
-    def prediction(self, indices: int | list[int]) -> int | np.ndarray:
-        """
-        Método legado para predição de valores acumulados.
-        Use prever() para nova interface.
-        """
-        if self.model is None:
-            raise ValueError("O modelo não foi treinado.")
-
-        pred = self.model.predict(np.array(indices).reshape(-1, 1))
-
-        if isinstance(indices, int):
-            return pred[0]
-        
-        return pred

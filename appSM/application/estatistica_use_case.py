@@ -98,15 +98,15 @@ def _executar_pipeline_completo(df: pd.DataFrame, janela: int, frequencia: str, 
     for idx, row in df.iterrows():
         registros.append({
             "Data": row["Data"],
-            "Consumo": round(row["Consumo"], 2),
-            "Média Móvel": round(row["Média Móvel"], 2) if not pd.isna(row["Média Móvel"]) else None,
-            "Desvio Padrão": round(row["Desvio Padrão"], 2) if not pd.isna(row["Desvio Padrão"]) else None,
-            "Banda Inf 3": round(row["Banda Inf 3"], 2) if not pd.isna(row["Banda Inf 3"]) else None,
-            "Banda Inf 2": round(row["Banda Inf 2"], 2) if not pd.isna(row["Banda Inf 2"]) else None,
-            "Banda Inf 1": round(row["Banda Inf 1"], 2) if not pd.isna(row["Banda Inf 1"]) else None,
-            "Banda Sup 1": round(row["Banda Sup 1"], 2) if not pd.isna(row["Banda Sup 1"]) else None,
-            "Banda Sup 2": round(row["Banda Sup 2"], 2) if not pd.isna(row["Banda Sup 2"]) else None,
-            "Banda Sup 3": round(row["Banda Sup 3"], 2) if not pd.isna(row["Banda Sup 3"]) else None,
+            "Consumo": round(row["Consumo"], 3),
+            "Média Móvel": round(row["Média Móvel"], 3) if not pd.isna(row["Média Móvel"]) else None,
+            "Desvio Padrão": round(row["Desvio Padrão"], 3) if not pd.isna(row["Desvio Padrão"]) else None,
+            "Banda Inf 3": round(row["Banda Inf 3"], 3) if not pd.isna(row["Banda Inf 3"]) else None,
+            "Banda Inf 3": round(row["Banda Inf 2"], 3) if not pd.isna(row["Banda Inf 2"]) else None,
+            "Banda Inf 3": round(row["Banda Inf 1"], 3) if not pd.isna(row["Banda Inf 1"]) else None,
+            "Banda Sup 3": round(row["Banda Sup 1"], 3) if not pd.isna(row["Banda Sup 1"]) else None,
+            "Banda Sup 3": round(row["Banda Sup 2"], 3) if not pd.isna(row["Banda Sup 2"]) else None,
+            "Banda Sup 3": round(row["Banda Sup 3"], 3) if not pd.isna(row["Banda Sup 3"]) else None,
         })
     return registros
 

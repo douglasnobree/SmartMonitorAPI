@@ -23,7 +23,13 @@ class ConsumoRepository:
 
     def buscar_historico_diario(self, sensor_id: str) -> pd.DataFrame:
         """Busca o histórico diário (45 dias incluindo hoje) agregado por sensor."""
+        from django.core.cache import cache
         hoje = _local_today()
+        cache_key = f"consumo:diario:{sensor_id}:{hoje:%Y-%m-%d}"
+        
+        if (cached := cache.get(cache_key)) is not None:
+            return cached
+
         inicio = hoje - pd.Timedelta(days=44)
         fim_exclusivo = hoje + pd.Timedelta(days=1)
 
@@ -39,7 +45,9 @@ class ConsumoRepository:
             """
         )
         params = {"sensor_id": sensor_id, "inicio": inicio.to_pydatetime(), "fim": fim_exclusivo.to_pydatetime()}
-        return self._carregar_dataframe(query, params)
+        df = self._carregar_dataframe(query, params)
+        cache.set(cache_key, df, timeout=300)
+        return df
 
     def buscar_historico_relatorio_diario(self, unidade_id: int, data_inicio, data_fim, dias_historico: int = 45) -> pd.DataFrame:
         """Busca dados diarios da unidade incluindo contexto anterior ao periodo solicitado."""

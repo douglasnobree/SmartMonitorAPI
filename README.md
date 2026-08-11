@@ -16,10 +16,10 @@ Esta API fornece serviços de análise e predição de consumo de água através
 
 O projeto adota uma arquitetura modular orientada a domínio, dividida em quatro camadas principais para separar as responsabilidades e garantir a integridade dos dados:
 
-- **API**: Camada de apresentação que recebe requisições, valida *payloads* via DRF Serializers e retorna respostas HTTP.
-- **Services**: Orquestra os fluxos, solicita dados à infraestrutura e coordena chamadas à camada de domínio.
-- **Domain**: Onde reside toda a inteligência matemática da aplicação (Regressão Linear, Bandas de Bollinger, limpeza e normalização de Pandas).
-- **Infrastructure**: Responsável pelo acesso *read-only* eficiente a bancos de dados externos.
+- **API**: Camada de apresentação que recebe requisições, formata dados e retorna respostas HTTP.
+- **Application**: Contém os *Use Cases* da aplicação, orquestrando fluxos, solicitando dados à infraestrutura e coordenando chamadas à camada de domínio.
+- **Domain**: Onde reside toda a inteligência matemática e regras de negócio puras (Regressão Linear, Bandas de Bollinger, limpeza e normalização de Pandas).
+- **Infrastructure**: Responsável pelo acesso *read-only* eficiente a bancos de dados externos, cacheamento (TTL), e persistência de modelos de Machine Learning.
 
 Para detalhes completos sobre o fluxo interno, o pipeline de Machine Learning e a organização de diretórios, consulte nosso documento dedicado de [Detalhes de Arquitetura](docs/architecture.md).
 
