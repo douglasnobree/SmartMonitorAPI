@@ -41,8 +41,6 @@ class LinearRegressionAcumulado:
         df['Acumulado'] = df['Consumo'].cumsum()
         df.reset_index(inplace=True, drop=True)
         
-        print(df)
-        
         # Treinar modelo de regressão linear
         x = np.arange(len(df)).reshape(-1, 1)
         y = np.array(df['Acumulado'])
@@ -91,8 +89,6 @@ class LinearRegressionAcumulado:
                     resultado = proximo_acumulado - acumulado_atual
                 
                 # Garantir que não seja negativo
-                print(f"Tipo de predição: {self.tipo_predicao}, Proximo acumulado: {proximo_acumulado}, Acumulado atual: {acumulado_atual}")
-                print(n_passos, proximo_acumulado, acumulado_atual, resultado)
                 return max(resultado, 0)
             
             case 'mensal':
