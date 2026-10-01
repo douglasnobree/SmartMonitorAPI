@@ -10,6 +10,27 @@ from typing import Optional
 class PredicaoUseCase:
 
     @staticmethod
+    def periodo(unidade_id: int, resourceId: int, data_inicio, data_fim) -> float:
+        """Estima o intervalo usando somente o histórico anterior à data inicial."""
+        try:
+            df = ConsumoRepository().buscar_contexto_predicao(unidade_id, resourceId, data_inicio)
+        except DataNotFoundError as exc:
+            raise ConsumoNaoEncontrado(str(exc)) from exc
+        df = normalizar_historico(df, frequencia='diaria')
+        if len(df) < 2:
+            raise ConsumoNaoEncontrado('Histórico insuficiente para prever este período.')
+        df, _ = tratar_outliers_iqr(df, multiplicador=3.0, substituicao='mediana')
+        modelo = LinearRegressionAcumulado(tipo_predicao='diaria')
+        modelo.treinar(df)
+        dias = (data_fim - data_inicio).days + 1
+        ultimo_dia = pd.Timestamp(df['Data'].iloc[-1]).date()
+        horizonte = (data_fim - ultimo_dia).days
+        # Compare cumulative predictions to exclude gaps before the selected interval.
+        fim = modelo.model.predict([[len(df) - 1 + horizonte]])[0]
+        inicio = modelo.model.predict([[len(df) - 1 + horizonte - dias]])[0]
+        return float(max(fim - inicio, 0))
+
+    @staticmethod
     def diario(sensor_id: str) -> float:
         """Caso de uso: predição do próximo consumo diário."""
         try:

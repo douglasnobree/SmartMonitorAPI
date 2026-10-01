@@ -71,6 +71,23 @@ class ConsumoRepository:
         }
         return self._carregar_dataframe(query, params)
         
+    def buscar_contexto_predicao(self, unidade_id: int, resource_id: int, data_inicio) -> pd.DataFrame:
+        fim = pd.Timestamp(data_inicio)
+        inicio = fim - pd.Timedelta(days=45)
+        query = text(
+            """
+            SELECT data AS Data, valor_entrada AS Consumo
+            FROM RelatorioDiarioUnidade
+            WHERE id_unidade = :unidade_id AND recurso_id = :resource_id
+              AND data >= :inicio AND data < :fim
+            ORDER BY data ASC
+            """
+        )
+        return self._carregar_dataframe(query, {
+            'unidade_id': unidade_id, 'resource_id': resource_id,
+            'inicio': inicio.to_pydatetime(), 'fim': fim.to_pydatetime(),
+        })
+
     def buscar_historico_mensal_bruto(self, unidade_id: int, inicio, fim) -> pd.DataFrame:
         """Busca dados diarios para agregação em ciclos mensais do relatorio historico."""
         query = text(

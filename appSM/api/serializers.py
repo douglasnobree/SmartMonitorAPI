@@ -17,6 +17,18 @@ class V2MonthlySerializer(serializers.Serializer):
         return attrs
 
 
+class V2PeriodPredictionSerializer(serializers.Serializer):
+    unidade_id = serializers.IntegerField(min_value=1)
+    resourceId = serializers.IntegerField(min_value=1)
+    data_inicio = serializers.DateField()
+    data_fim = serializers.DateField()
+
+    def validate(self, attrs):
+        if attrs['data_inicio'] > attrs['data_fim']:
+            raise serializers.ValidationError('A data final deve ser maior ou igual à data inicial.')
+        return attrs
+
+
 class V2ClassificationHistorySerializer(serializers.Serializer):
     """Payload para o relatorio historico de classificacao."""
 

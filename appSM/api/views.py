@@ -19,6 +19,7 @@ from appSM.application.historico_use_case import HistoricoUseCase
 from appSM.application.range_use_case import RangeUseCase
 from appSM.application.exceptions import ConsumoNaoEncontrado, DispositivoNaoEncontrado
 from appSM.services.ph_classification_service import PHClassificationService
+from appSM.api.serializers import V2PeriodPredictionSerializer
 
 logger = logging.getLogger(__name__)
 
@@ -82,6 +83,24 @@ class V2PredicaoMensal(_V2BaseView):
         except Exception as exc:
             logger.exception("Erro interno: %s", exc)
             return JsonResponse({"error": "Erro interno."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class V2PredicaoPeriodo(_V2BaseView):
+    serializer_class = V2PeriodPredictionSerializer
+
+    @swagger_auto_schema(request_body=V2PeriodPredictionSerializer)
+    def post(self, request):
+        validated_data, error_response = self._validate_payload(request)
+        if error_response is not None:
+            return error_response
+        try:
+            resultado = PredicaoUseCase.periodo(**validated_data)
+            return JsonResponse({'Prediction': resultado}, status=status.HTTP_200_OK)
+        except ConsumoNaoEncontrado as exc:
+            return JsonResponse({'error': str(exc)}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as exc:
+            logger.exception('Erro na previsão do período: %s', exc)
+            return JsonResponse({'error': 'Erro interno.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 class V2AnaliseEstatisticaDiaria(_V2BaseView):

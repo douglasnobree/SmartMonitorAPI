@@ -11,6 +11,7 @@ from rest_framework_simplejwt.views import (
 from appSM.api.views import (
     V2PredicaoDiaria,
     V2PredicaoMensal,
+    V2PredicaoPeriodo,
     V2AnaliseEstatisticaDiaria,
     V2AnaliseEstatisticaMensal,
     V2ClassificationHistory,
@@ -48,6 +49,7 @@ urlpatterns = [
     # Rotas v2
     path('v2/prediction/daily', V2PredicaoDiaria.as_view(), name='v2-predicao-consumo-diario'),
     path('v2/prediction/monthly', V2PredicaoMensal.as_view(), name='v2-predicao-consumo-mensal'),
+    path('v2/prediction/period', V2PredicaoPeriodo.as_view(), name='v2-predicao-consumo-periodo'),
     path('v2/statistic/daily', V2AnaliseEstatisticaDiaria.as_view(), name='v2-classificacao-consumo-diaria'),
     path('v2/statistic/monthly', V2AnaliseEstatisticaMensal.as_view(), name='v2-classificacao-consumo-mensal'),
     path('v2/statistic/data', V2DadosBandas.as_view(), name='v2-dados-bandas'),
