@@ -74,21 +74,21 @@ def _executar_pipeline(df: pd.DataFrame, janela: int, frequencia: str, estrategi
 
     # Lógica de outlier no último ponto: classificar pelo valor original
     last_idx = df.index[-1]
+    consumo_original = float(df_original.loc[last_idx, "Consumo"])
     if bool(mascara_outliers.loc[last_idx]) and pd.notna(df.loc[last_idx, "Classificação"]):
-        consumo_original = float(df_original.loc[last_idx, "Consumo"])
         row = df.loc[last_idx]
         df.loc[last_idx, "Classificação"] = classificar_por_faixa(
             consumo_original, 
             row["Banda Sup 2"], row["Banda Sup 1"], 
             row["Banda Inf 1"], row["Banda Inf 2"]
         )
-        df.loc[last_idx, "Consumo"] = consumo_original
+    df.loc[last_idx, "Consumo"] = consumo_original
 
     df = _preencher_nulos(df)
     ultima_linha = df.iloc[-1]
     return {
         "Data": ultima_linha["Data"],
-        "Consumo": ultima_linha["Consumo"],
+        "Consumo": consumo_original,
         "Classificação": int(ultima_linha["Classificação"]) if pd.notna(ultima_linha["Classificação"]) else None,
     }
 

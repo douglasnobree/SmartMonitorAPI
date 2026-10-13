@@ -211,6 +211,37 @@ class HistoricoUseCaseTests(SimpleTestCase):
         self.assertEqual(resultado['results'][0]['classificacao'], 1)
         self.assertNotIn('31/05/2026', [item['periodo'] for item in resultado['results']])
 
+    def test_monthly_historico_com_ano_anterior_zerado_preserva_consumo_ativo(self):
+        """Cenário: unidade com ano anterior inteiro com consumo 0 e meses posteriores com consumo ativo (> 100).
+        Resultado esperado: consumos reais não são colapsados para 0 e meses ativos possuem classificação válida."""
+        class FakeRepoComZeros:
+            def buscar_historico_mensal_bruto(self, unidade_id, inicio, fim):
+                # 2025 inteiro zerado + 2026 com 3 meses zerados e 5 meses ativos
+                datas_2025 = pd.date_range('2025-01-01', '2025-12-31', freq='D')
+                datas_2026_zeradas = pd.date_range('2026-01-01', '2026-03-31', freq='D')
+                # 5 meses ativos: abril a agosto
+                datas_2026_ativas = pd.date_range('2026-04-01', '2026-08-31', freq='D')
+
+                df_2025 = pd.DataFrame({'Consumo': [0.0] * len(datas_2025)}, index=datas_2025)
+                df_2026_zerado = pd.DataFrame({'Consumo': [0.0] * len(datas_2026_zeradas)}, index=datas_2026_zeradas)
+                # ~150 por mês (5 por dia)
+                df_2026_ativo = pd.DataFrame({'Consumo': [5.0] * len(datas_2026_ativas)}, index=datas_2026_ativas)
+
+                return pd.concat([df_2025, df_2026_zerado, df_2026_ativo])
+
+        service = HistoricoUseCase(consumo_repo=FakeRepoComZeros())
+        resultado = service.processar({'type': 'monthly', 'unidade_id': 3, 'ano': 2026})
+        results = resultado['results']
+
+        # Meses zerados iniciais devem ter consumo 0 e classificacao None (pois desvio padrao é 0)
+        self.assertEqual(results[0]['consumo'], 0.0)
+        self.assertIsNone(results[0]['classificacao'])
+
+        # Meses ativos (a partir do 4º mês) devem manter consumo positivo (> 0) e ter classificação válida
+        for mes_ativo in results[3:8]:
+            self.assertGreater(mes_ativo['consumo'], 0.0)
+            self.assertIsNotNone(mes_ativo['classificacao'])
+
     def test_periodos_mensais_respeitam_dia_fechamento(self):
         """Cenario: o fechamento configurado e dia 14.
         Resultado esperado: os ciclos do ano terminam no dia anterior do mes de referencia."""
