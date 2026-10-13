@@ -24,19 +24,34 @@ def classificar_por_faixa(
         return -1
     return -2
 
-def classificar_serie(df: pd.DataFrame) -> pd.Series:
-    """Aplica classificar_por_faixa em cada linha do DataFrame com bandas calculadas."""
-    def _classifica(row):
+def classificar_serie(df: pd.DataFrame, min_dados: int = 3) -> pd.Series:
+    """
+    Aplica classificar_por_faixa em cada linha do DataFrame com bandas calculadas.
+    Os primeiros dados (i + 1 < min_dados) ou linhas sem desvio padrão válido (<= 0 ou NaN)
+    retornam None, pois são considerados dados de aquecimento para o cálculo de Bollinger.
+    """
+    classificacoes = []
+    for i, (_, row) in enumerate(df.iterrows()):
+        if (i + 1) < min_dados:
+            classificacoes.append(None)
+            continue
+
+        sd = row.get("Desvio Padrão")
+        if pd.isna(sd) or sd <= 0:
+            classificacoes.append(None)
+            continue
+
         c = row["Consumo"]
         bs2 = row.get("Banda Sup 2")
         bs1 = row.get("Banda Sup 1")
         bi1 = row.get("Banda Inf 1")
         bi2 = row.get("Banda Inf 2")
-        sd = row.get("Desvio Padrão")
-        
-        if pd.isna(sd):
-            return None
-            
-        return classificar_por_faixa(c, bs2, bs1, bi1, bi2)
-        
-    return df.apply(_classifica, axis=1)
+
+        if any(pd.isna(b) for b in (bs2, bs1, bi1, bi2)):
+            classificacoes.append(None)
+            continue
+
+        classificacoes.append(classificar_por_faixa(c, bs2, bs1, bi1, bi2))
+
+    return pd.Series(classificacoes, index=df.index, dtype=object)
+

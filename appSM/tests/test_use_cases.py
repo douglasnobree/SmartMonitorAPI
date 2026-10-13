@@ -143,7 +143,57 @@ class EstatisticaUseCaseTests(SimpleTestCase):
             with self.assertRaisesMessage(ValueError, 'Nenhuma data valida encontrada no historico'):
                 EstatisticaUseCase.diario('sensor_1')
 
+    def test_mensal_menos_de_tres_meses_retorna_classificacao_none(self):
+        """Cenário: o histórico mensal tem menos de 3 dados (1 ou 2 meses).
+        Resultado esperado: Classificação é None, pois são dados de aquecimento para Bollinger."""
+        with patch('appSM.application.estatistica_use_case.ConsumoRepository') as mock_repo_cls:
+            # 1 mês
+            df_1 = pd.DataFrame({'Data': pd.to_datetime(['01/01/2026'], format='%d/%m/%Y'), 'Consumo': [10.0]})
+            mock_repo_cls.return_value.buscar_historico_mensal.return_value = df_1
+            res_1 = EstatisticaUseCase.mensal(10)
+            self.assertIsNone(res_1['Classificação'])
+
+            # 2 meses
+            df_2 = pd.DataFrame({
+                'Data': pd.to_datetime(['01/01/2026', '01/02/2026'], format='%d/%m/%Y'),
+                'Consumo': [10.0, 15.0]
+            })
+            mock_repo_cls.return_value.buscar_historico_mensal.return_value = df_2
+            res_2 = EstatisticaUseCase.mensal(10)
+            self.assertIsNone(res_2['Classificação'])
+
+    def test_mensal_tres_ou_mais_meses_retorna_classificacao_valida(self):
+        """Cenário: o histórico mensal tem 3 meses ou mais.
+        Resultado esperado: Classificação é calculada com sucesso (int)."""
+        with patch('appSM.application.estatistica_use_case.ConsumoRepository') as mock_repo_cls:
+            df_3 = pd.DataFrame({
+                'Data': pd.to_datetime(['01/01/2026', '01/02/2026', '01/03/2026'], format='%d/%m/%Y'),
+                'Consumo': [10.0, 15.0, 20.0]
+            })
+            mock_repo_cls.return_value.buscar_historico_mensal.return_value = df_3
+            res = EstatisticaUseCase.mensal(10)
+            self.assertIsNotNone(res['Classificação'])
+            self.assertIsInstance(res['Classificação'], int)
+
 class HistoricoUseCaseTests(SimpleTestCase):
+
+    def test_monthly_primeiros_dois_meses_retornam_classificacao_none_e_terceiro_classificado(self):
+        """Cenário: histórico mensal da unidade começa no ano com 3 meses.
+        Resultado esperado: os 2 primeiros meses retornam classificacao=None e o 3º é classificado."""
+        class FakeConsumoRepoMonthly:
+            def buscar_historico_mensal_bruto(self, unidade_id, inicio, fim):
+                index = pd.date_range('2026-01-01', '2026-03-31', freq='D')
+                # 90 dias com consumo diário constante
+                return pd.DataFrame({'Consumo': [1.0] * len(index)}, index=index)
+
+        service = HistoricoUseCase(consumo_repo=FakeConsumoRepoMonthly())
+        resultado = service.processar({'type': 'monthly', 'unidade_id': 10, 'ano': 2026})
+        results = resultado['results']
+        # Primeiros 3 meses
+        self.assertGreaterEqual(len(results), 3)
+        self.assertIsNone(results[0]['classificacao'])
+        self.assertIsNone(results[1]['classificacao'])
+        self.assertIsNotNone(results[2]['classificacao'])
 
     def test_daily_usa_contexto_e_retorna_apenas_periodo_solicitado(self):
         """Cenario: ha dados anteriores ao periodo solicitado.

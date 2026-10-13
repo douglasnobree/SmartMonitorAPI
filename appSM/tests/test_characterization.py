@@ -6,7 +6,7 @@ import numpy as np
 from appSM.domain import LinearRegressionAcumulado
 from appSM.domain.outliers import tratar_outliers_iqr
 from appSM.domain.bollinger import RollingWindowBollinger
-from appSM.domain.classificador import classificar_por_faixa
+from appSM.domain.classificador import classificar_por_faixa, classificar_serie
 from appSM.domain.ciclo_faturamento import agregar_por_ciclo_mensal, periodos_do_ano
 from appSM.domain.tratamento import normalizar_historico
 
@@ -129,3 +129,24 @@ class CharacterizationTests(SimpleTestCase):
         previsao = modelo.prever(len(df))
         self.assertIsInstance(previsao, float)
         self.assertGreaterEqual(previsao, 0.0)
+
+    def test_char_classificar_serie_aquecimento_e_desvio_invalido(self):
+        """11. classificar_serie: primeiros dados (< min_dados) e desvio <= 0 retornam None."""
+        df = pd.DataFrame({
+            "Consumo": [10.0, 15.0, 20.0, 10.0],
+            "Média Móvel": [10.0, 12.5, 15.0, 15.0],
+            "Desvio Padrão": [0.0, 3.5, 5.0, 0.0],
+            "Banda Sup 2": [10.0, 19.5, 25.0, 15.0],
+            "Banda Sup 1": [10.0, 16.0, 20.0, 15.0],
+            "Banda Inf 1": [10.0, 9.0, 10.0, 15.0],
+            "Banda Inf 2": [10.0, 5.5, 5.0, 15.0],
+        })
+        series = classificar_serie(df, min_dados=3)
+        # Índice 0 (1º dado < 3) -> None
+        self.assertIsNone(series.iloc[0])
+        # Índice 1 (2º dado < 3) -> None
+        self.assertIsNone(series.iloc[1])
+        # Índice 2 (3º dado >= 3 e desvio > 0) -> Classificado (20.0 entre sup1 e sup2 -> 1)
+        self.assertEqual(series.iloc[2], 1)
+        # Índice 3 (4º dado >= 3 mas desvio == 0) -> None
+        self.assertIsNone(series.iloc[3])

@@ -10,16 +10,16 @@
 ## /v2/statistic/daily, /v2/statistic/monthly & /v2/statistic/data
 - **Arquivos afetados:** [projectSM/urls.py](projectSM/urls.py), [appSM/api/views.py](appSM/api/views.py), [appSM/api/serializers.py](appSM/api/serializers.py), [appSM/infrastructure/db_fetcher.py](appSM/infrastructure/db_fetcher.py), [appSM/services/analise_estatistica_service.py](appSM/services/analise_estatistica_service.py), [appSM/domain/tratamento.py](appSM/domain/tratamento.py)
 - **Serviços chamados:** `ExternalDataFetcher` -> `AnaliseEstatisticaService` (composição com `normalizar_historico`).
-- **Regras impactadas:** Cálculo de média móvel e desvio padrão (Bandas de Bollinger), tratamento de outliers (faturados substituidos pela mediana da série), fatiamento pandas direto sem round-trip intermediário.
-- **Possíveis efeitos colaterais:** Alterações no limiar da janela estatística (30 dias para diário, 12 para mensal) reclassificam séries à beira das faixas de tolerância.
+- **Regras impactadas:** Cálculo de média móvel e desvio padrão (Bandas de Bollinger), tratamento de outliers (faturados substituidos pela mediana da série), fatiamento pandas direto sem round-trip intermediário. Aquecimento estatístico de Bollinger: exige no mínimo 3 dados (3 meses para análises mensais) para classificação válida; dados de aquecimento anteriores ou com desvio padrão nulo/inválido retornam classificação nula (`None`).
+- **Possíveis efeitos colaterais:** Séries mensais com menos de 3 meses de histórico passam a retornar `classificacao: null` em vez de falso positivo imediato (ex.: 'Consumo Excessivo').
 - **Cobertura de Testes Ativa:** Testes de caracterização congelando o cálculo preciso de médias móveis, limites de bandas superior/inferior, validação DRF de request e respostas mockadas limpas.
 
 ## /v2/classification/history
 - **Arquivos afetados:** [projectSM/urls.py](projectSM/urls.py), [appSM/api/views.py](appSM/api/views.py), [appSM/api/serializers.py](appSM/api/serializers.py), [appSM/infrastructure/db_fetcher.py](appSM/infrastructure/db_fetcher.py), [appSM/services/classification_history_service.py](appSM/services/classification_history_service.py), [appSM/services/analise_estatistica_service.py](appSM/services/analise_estatistica_service.py)
 - **Serviços chamados:** `ClassificationHistoryService` -> `ExternalDataFetcher` -> `AnaliseEstatisticaService`.
-- **Regras impactadas:** Montagem de série temporal em lote mantendo histórico anterior ao período solicitado para contexto estatístico de Bollinger (fatiado dinamicamente com indexação Pandas). Suporta fechamentos de ciclo mensal e diário.
+- **Regras impactadas:** Montagem de série temporal em lote mantendo histórico anterior ao período solicitado para contexto estatístico de Bollinger (fatiado dinamicamente com indexação Pandas). Suporta fechamentos de ciclo mensal e diário. Dados com histórico acumulado inferior a 3 períodos retornam classificação nula (`None`) como período de aquecimento estatístico.
 - **Possíveis efeitos colaterais:** O consumo de CPU escala proporcionalmente ao número de registros cobrindo o período da consulta.
-- **Cobertura de Testes Ativa:** Teste unitário verificando restrição à janela de resposta com reaproveitamento do histórico anterior em memória sem serialização dict extra.
+- **Cobertura de Testes Ativa:** Teste unitário verificando restrição à janela de resposta com reaproveitamento do histórico anterior em memória sem serialização dict extra, e validação dos 2 primeiros meses de novas unidades sem classificação antes de atingir 3 meses.
 
 ## /classify/ph
 - **Arquivos afetados:** [projectSM/urls.py](projectSM/urls.py), [appSM/api/views.py](appSM/api/views.py), [appSM/services/ph_classification_service.py](appSM/services/ph_classification_service.py)

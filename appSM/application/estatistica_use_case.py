@@ -51,16 +51,30 @@ class EstatisticaUseCase:
 def _executar_pipeline(df: pd.DataFrame, janela: int, frequencia: str, estrategia: EstrategiaBollinger = None) -> dict:
     """Pipeline interno de análise estatística — sem estado, sem efeitos colaterais."""
     _estrategia = estrategia or estrategia_padrao
+    min_dados = 3 if frequencia == "mensal" else 3
 
     df = normalizar_historico(df, frequencia=frequencia)
     df_original = df.copy()
+
+    # Mínimo de dados para a classificação valer (mínimo 3 dados para classificação mensal)
+    if len(df) < min_dados:
+        df = _estrategia.calcular(df, janela=janela)
+        df["Classificação"] = None
+        df = _preencher_nulos(df)
+        ultima_linha = df.iloc[-1]
+        return {
+            "Data": ultima_linha["Data"],
+            "Consumo": ultima_linha["Consumo"],
+            "Classificação": None,
+        }
+
     df, mascara_outliers = tratar_outliers_iqr(df, multiplicador=1.5, substituicao="media")
     df = _estrategia.calcular(df, janela=janela)
-    df["Classificação"] = classificar_serie(df)
+    df["Classificação"] = classificar_serie(df, min_dados=min_dados)
 
     # Lógica de outlier no último ponto: classificar pelo valor original
     last_idx = df.index[-1]
-    if bool(mascara_outliers.loc[last_idx]):
+    if bool(mascara_outliers.loc[last_idx]) and pd.notna(df.loc[last_idx, "Classificação"]):
         consumo_original = float(df_original.loc[last_idx, "Consumo"])
         row = df.loc[last_idx]
         df.loc[last_idx, "Classificação"] = classificar_por_faixa(
@@ -82,15 +96,21 @@ def _executar_pipeline(df: pd.DataFrame, janela: int, frequencia: str, estrategi
 def _executar_pipeline_completo(df: pd.DataFrame, janela: int, frequencia: str, estrategia: EstrategiaBollinger = None) -> list:
     """Pipeline para obter toda a série histórica com bandas e classificações."""
     _estrategia = estrategia or estrategia_padrao
+    min_dados = 3 if frequencia == "mensal" else 3
 
     df = normalizar_historico(df, frequencia=frequencia)
     df_original = df.copy()
-    df, mascara_outliers = tratar_outliers_iqr(df, multiplicador=1.5, substituicao="media")
+    if len(df) >= min_dados:
+        df, mascara_outliers = tratar_outliers_iqr(df, multiplicador=1.5, substituicao="media")
+    else:
+        mascara_outliers = pd.Series(False, index=df.index)
+
     df = _estrategia.calcular(df, janela=janela)
-    df["Classificação"] = classificar_serie(df)
+    df["Classificação"] = classificar_serie(df, min_dados=min_dados)
     
     # Restaurar o valor original onde houve outliers para a visualização
-    df.loc[mascara_outliers, "Consumo"] = df_original.loc[mascara_outliers, "Consumo"]
+    if mascara_outliers.any():
+        df.loc[mascara_outliers, "Consumo"] = df_original.loc[mascara_outliers, "Consumo"]
     
     df = _preencher_nulos(df)
     
